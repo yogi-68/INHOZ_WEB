@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Camera Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .video-container {
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      overflow: hidden;
+      margin: 20px 0;
+    }
+    video {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    button {
+      padding: 10px 20px;
+      margin-right: 10px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:disabled {
+      background-color: #cccccc;
+    }
+    .error {
+      color: red;
+      padding: 10px;
+      background-color: #ffeeee;
+      border-radius: 4px;
+      margin: 10px 0;
+    }
+    .success {
+      color: green;
+      padding: 10px;
+      background-color: #eeffee;
+      border-radius: 4px;
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>Camera Access Test</h1>
+  <p>This page tests if your browser can access the camera.</p>
+  
+  <div>
+    <button id="startButton">Start Camera</button>
+    <button id="stopButton" disabled>Stop Camera</button>
+  </div>
+  
+  <div id="status"></div>
+  
+  <div class="video-container">
+    <video id="video" autoplay playsinline></video>
+  </div>
+  
+  <div id="deviceInfo"></div>
+  
+  <script>
+    const videoElement = document.getElementById('video');
+    const startButton = document.getElementById('startButton');
+    const stopButton = document.getElementById('stopButton');
+    const statusDiv = document.getElementById('status');
+    const deviceInfoDiv = document.getElementById('deviceInfo');
+    
+    let stream = null;
+    
+    // Function to display status messages
+    function updateStatus(message, isError = false) {
+      statusDiv.innerHTML = `<div class="${isError ? 'error' : 'success'}">${message}</div>`;
+    }
+    
+    // List available media devices
+    async function listDevices() {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        let html = '<h2>Available Devices:</h2><ul>';
+        
+        devices.forEach(device => {
+          html += `<li>${device.kind}: ${device.label || 'Unknown'} (${device.deviceId.substring(0, 8)}...)</li>`;
+        });
+        
+        html += '</ul>';
+        deviceInfoDiv.innerHTML = html;
+      } catch (err) {
+        deviceInfoDiv.innerHTML = `<div class="error">Error listing devices: ${err.message}</div>`;
+      }
+    }
+    
+    // Start camera
+    startButton.addEventListener('click', async () => {
+      try {
+        updateStatus('Requesting camera access...');
+        
+        // Check if browser supports getUserMedia
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error('Your browser does not support camera access');
+        }
+        
+        // Try to get camera access
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          video: true,
+          audio: false
+        });
+        
+        // Set the stream to the video element
+        videoElement.srcObject = stream;
+        
+        // Update UI
+        updateStatus('Camera access successful!');
+        startButton.disabled = true;
+        stopButton.disabled = false;
+        
+        // List available devices
+        listDevices();
+        
+      } catch (err) {
+        updateStatus(`Camera access error: ${err.message}`, true);
+        console.error('Camera error:', err);
+      }
+    });
+    
+    // Stop camera
+    stopButton.addEventListener('click', () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        videoElement.srcObject = null;
+        stream = null;
+        
+        // Update UI
+        updateStatus('Camera stopped');
+        startButton.disabled = false;
+        stopButton.disabled = true;
+      }
+    });
+    
+    // Check browser compatibility
+    window.addEventListener('load', () => {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        updateStatus('Your browser does not support camera access', true);
+        startButton.disabled = true;
+      } else {
+        updateStatus('Click "Start Camera" to begin testing');
+      }
+    });
+  </script>
+</body>
+</html> 
