@@ -66,6 +66,9 @@ function App() {
     <LanguageProvider>
       <Router>
         <Routes>
+          {/* Root redirect - check auth and redirect accordingly */}
+          <Route path="/" element={<DashboardRedirect />} />
+          
           {/* Role Selection & Login Routes */}
           <Route path="/login" element={<RoleSelector />} />
           <Route path="/login/admin" element={<AdminLogin />} />
@@ -102,31 +105,21 @@ function App() {
             }
           />
           
-          {/* Legacy routes for backward compatibility */}
-          <Route
-            path="/*"
-            element={
-              <ProtectedRoute>
-                <Layout isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode}>
-                  <Routes>
-                    <Route path="/" element={<DashboardRedirect />} />
-                    <Route path="/patients" element={<PatientDetails />} />
-                    <Route path="/vitals" element={<Vitals isDarkMode={isDarkMode} />} />
-                    <Route path="/history" element={<PatientHistory />} />
-                    <Route path="/doctor-profile" element={<DoctorDashboard />} />
-                    <Route path="/settings" element={<Settings onLogout={handleLogout} />} />
-                    <Route path="/unauthorized" element={
-                      <div className="p-6 text-center">
-                        <h2 className="text-2xl font-bold text-red-600">Unauthorized Access</h2>
-                        <p className="mt-4">You don't have permission to access this page.</p>
-                      </div>
-                    } />
-                    <Route path="*" element={<DashboardRedirect />} />
-                  </Routes>
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
+          {/* Unauthorized Route */}
+          <Route path="/unauthorized" element={
+            <div className="min-h-screen flex items-center justify-center bg-gray-100">
+              <div className="bg-white p-8 rounded-lg shadow-md text-center">
+                <h2 className="text-2xl font-bold text-red-600 mb-4">Unauthorized Access</h2>
+                <p className="text-gray-600 mb-6">You don't have permission to access this page.</p>
+                <a href="/login" className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded">
+                  Go to Login
+                </a>
+              </div>
+            </div>
+          } />
+          
+          {/* Catch all - redirect to login or dashboard */}
+          <Route path="*" element={<DashboardRedirect />} />
         </Routes>
       </Router>
     </LanguageProvider>
