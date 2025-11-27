@@ -1,0 +1,199 @@
+import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// Backend API URL - update this to your backend server
+const API_URL = 'http://localhost:3001/api/v1';
+// For Android emulator use: http://10.0.2.2:3001/api/v1
+// For iOS simulator use: http://localhost:3001/api/v1
+// For physical device use: http://YOUR_COMPUTER_IP:3001/api/v1
+
+class ApiClient {
+  constructor() {
+    this.client = axios.create({
+      baseURL: API_URL,
+      timeout: 10000,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    // Request interceptor to add auth token
+    this.client.interceptors.request.use(
+      async (config) => {
+        const token = await AsyncStorage.getItem('accessToken');
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+      },
+      (error) => Promise.reject(error)
+    );
+
+    // Response interceptor for token refresh
+    this.client.interceptors.response.use(
+      (response) => response,
+      async (error) => {
+        const originalRequest = error.config;
+
+        if (error.response?.status === 401 && !originalRequest._retry) {
+          originalRequest._retry = true;
+
+          try {
+            const refreshToken = await AsyncStorage.getItem('refreshToken');
+            const response = await axios.post(`${API_URL}/auth/refresh`, {
+              refreshToken,
+            });
+
+            const { accessToken } = response.data.data;
+            await AsyncStorage.setItem('accessToken', accessToken);
+
+            originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+            return this.client(originalRequest);
+          } catch (refreshError) {
+            await this.logout();
+            return Promise.reject(refreshError);
+          }
+        }
+
+        return Promise.reject(error);
+      }
+    );
+  }
+
+  // Auth APIs
+  async login(email, password) {
+    const response = await this.client.post('/auth/login', { email, password });
+    const { accessToken, refreshToken, user } = response.data.data;
+    
+    await AsyncStorage.setItem('accessToken', accessToken);
+    await AsyncStorage.setItem('refreshToken', refreshToken);
+    await AsyncStorage.setItem('user', JSON.stringify(user));
+    
+    return response.data;
+  }
+
+  async register(userData) {
+    const response = await this.client.post('/auth/register', userData);
+    return response.data;
+  }
+
+  async logout() {
+    try {
+      await this.client.post('/auth/logout');
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'user']);
+    }
+  }
+
+  async getProfile() {
+    const response = await this.client.get('/auth/profile');
+    return response.data;
+  }
+
+  // Admin APIs
+  async getAdminDashboard() {
+    const response = await this.client.get('/admin/dashboard');
+    return response.data;
+  }
+
+  async getDoctors() {
+    const response = await this.client.get('/admin/doctors');
+    return response.data;
+  }
+
+  async createDoctor(doctorData) {
+    const response = await this.client.post('/admin/doctors', doctorData);
+    return response.data;
+  }
+
+  async updateDoctor(doctorId, doctorData) {
+    const response = await this.client.put(`/admin/doctors/${doctorId}`, doctorData);
+    return response.data;
+  }
+
+  async deleteDoctor(doctorId) {
+    const response = await this.client.delete(`/admin/doctors/${doctorId}`);
+    return response.data;
+  }
+
+  async getAdminPatients() {
+    const response = await this.client.get('/admin/patients');
+    return response.data;
+  }
+
+  async assignDoctor(assignmentData) {
+    const response = await this.client.post('/admin/patients/assign-doctor', assignmentData);
+    return response.data;
+  }
+
+  async getInvoices() {
+    const response = await this.client.get('/admin/invoices');
+    return response.data;
+  }
+
+  // Doctor APIs
+  async getDoctorPatients() {
+    const response = await this.client.get('/doctor/patients');
+    return response.data;
+  }
+
+  async getPatientVitalsHistory(patientId) {
+    const response = await this.client.get(`/doctor/patients/${patientId}/vitals`);
+    return response.data;
+  }
+
+  async createPrescription(prescriptionData) {
+    const response = await this.client.post('/doctor/prescriptions', prescriptionData);
+    return response.data;
+  }
+
+  async getAlerts() {
+    const response = await this.client.get('/doctor/alerts');
+    return response.data;
+  }
+
+  async acknowledgeAlert(alertId) {
+    const response = await this.client.put(`/doctor/alerts/${alertId}/acknowledge`);
+    return response.data;
+  }
+
+  // Patient APIs
+  async getPatientOwnVitals() {
+    const response = await this.client.get('/patient/vitals');
+    return response.data;
+  }
+
+  async getPatientPrescriptionsOwn() {
+    const response = await this.client.get('/patient/prescriptions');
+    return response.data;
+  }
+
+  async getPatientInvoicesOwn() {
+    const response = await this.client.get('/patient/invoices');
+    return response.data;
+  }
+
+  async getPatientAlertsOwn() {
+    const response = await this.client.get('/patient/alerts');
+    return response.data;
+  }
+
+  // Helper methods
+  async getToken() {
+    return await AsyncStorage.getItem('accessToken');
+  }
+
+  async getUser() {
+    const userStr = await AsyncStorage.getItem('user');
+    return userStr ? JSON.parse(userStr) : null;
+  }
+
+  async getUserRole() {
+    const user = await this.getUser();
+    return user?.role || null;
+  }
+}
+
+export default new ApiClient();

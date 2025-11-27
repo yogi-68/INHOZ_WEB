@@ -1,0 +1,1226 @@
+openapi: 3.0.3
+info:
+  title: INHOZ API
+  description: |
+    AI-Powered Smart Hospitalization System API
+    
+    ## Authentication
+    Most endpoints require JWT authentication. Include the token in the Authorization header:
+    ```
+    Authorization: Bearer <access_token>
+    ```
+    
+    ## Roles
+    - `admin`: Full system access
+    - `doctor`: Patient monitoring and care management
+    - `patient`: View own medical records
+    
+    ## Rate Limiting
+    - Standard endpoints: 100 requests/minute
+    - Device ingestion: 1000 requests/minute
+    
+  version: 1.0.0
+  contact:
+    name: INHOZ Development Team
+    url: https://github.com/yogi-68/INHOZ_WEB
+
+servers:
+  - url: https://api.inhoz.com/v1
+    description: Production server
+  - url: https://staging-api.inhoz.com/v1
+    description: Staging server
+  - url: http://localhost:3000/api
+    description: Local development
+
+tags:
+  - name: Authentication
+    description: User authentication and authorization
+  - name: Admin
+    description: Admin-only operations (RBAC: admin)
+  - name: Doctor
+    description: Doctor operations (RBAC: doctor)
+  - name: Patient
+    description: Patient operations (RBAC: patient)
+  - name: Ingestion
+    description: Device data ingestion (API key auth)
+  - name: Alerts
+    description: Alert management
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    deviceAuth:
+      type: apiKey
+      in: header
+      name: X-Device-Key
+
+  schemas:
+    User:
+      type: object
+      properties:
+        _id:
+          type: string
+          format: objectId
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [admin, doctor, patient]
+        profile:
+          $ref: '#/components/schemas/UserProfile'
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    UserProfile:
+      type: object
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        phone:
+          type: string
+        avatarUrl:
+          type: string
+          nullable: true
+
+    Doctor:
+      type: object
+      properties:
+        _id:
+          type: string
+        userId:
+          type: string
+        specialty:
+          type: string
+        credentials:
+          type: array
+          items:
+            type: string
+        availability:
+          type: array
+          items:
+            $ref: '#/components/schemas/Availability'
+        assignedPatients:
+          type: array
+          items:
+            type: string
+
+    Availability:
+      type: object
+      properties:
+        day:
+          type: string
+          enum: [Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday]
+        from:
+          type: string
+          pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+        to:
+          type: string
+          pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+
+    Patient:
+      type: object
+      properties:
+        _id:
+          type: string
+        userId:
+          type: string
+        hospitalId:
+          type: string
+        roomNo:
+          type: string
+        age:
+          type: integer
+        gender:
+          type: string
+          enum: [M, F, Other]
+        emergencyContact:
+          $ref: '#/components/schemas/EmergencyContact'
+        status:
+          type: string
+          enum: [admitted, monitoring, discharged]
+        assignedDoctorId:
+          type: string
+          nullable: true
+
+    EmergencyContact:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+
+    Assignment:
+      type: object
+      properties:
+        _id:
+          type: string
+        patientId:
+          type: string
+        doctorId:
+          type: string
+        assignedBy:
+          type: string
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    Prescription:
+      type: object
+      properties:
+        _id:
+          type: string
+        patientId:
+          type: string
+        doctorId:
+          type: string
+        medicines:
+          type: array
+          items:
+            $ref: '#/components/schemas/Medicine'
+        tests:
+          type: array
+          items:
+            type: string
+        notes:
+          type: string
+          nullable: true
+        validFrom:
+          type: string
+          format: date-time
+        validUntil:
+          type: string
+          format: date-time
+          nullable: true
+        attachments:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    Medicine:
+      type: object
+      required:
+        - name
+        - dose
+        - frequency
+        - durationDays
+      properties:
+        name:
+          type: string
+        dose:
+          type: string
+        frequency:
+          type: string
+        durationDays:
+          type: integer
+
+    Invoice:
+      type: object
+      properties:
+        _id:
+          type: string
+        patientId:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/InvoiceItem'
+        total:
+          type: number
+        issuedBy:
+          type: string
+        status:
+          type: string
+          enum: [pending, paid, cancelled]
+        issuedAt:
+          type: string
+          format: date-time
+        dueAt:
+          type: string
+          format: date-time
+          nullable: true
+        attachmentUrl:
+          type: string
+          nullable: true
+
+    InvoiceItem:
+      type: object
+      properties:
+        label:
+          type: string
+        amount:
+          type: number
+
+    Vitals:
+      type: object
+      properties:
+        meta:
+          type: object
+          properties:
+            patientId:
+              type: string
+            deviceId:
+              type: string
+        timestamp:
+          type: string
+          format: date-time
+        heartRate:
+          type: number
+          nullable: true
+        bloodPressure:
+          type: object
+          nullable: true
+          properties:
+            systolic:
+              type: number
+            diastolic:
+              type: number
+        temperature:
+          type: number
+          nullable: true
+        spO2:
+          type: number
+          nullable: true
+        respiratoryRate:
+          type: number
+          nullable: true
+        ivLevel:
+          type: number
+          nullable: true
+        glucose:
+          type: number
+          nullable: true
+        painScale:
+          type: integer
+          minimum: 0
+          maximum: 10
+          nullable: true
+        raw:
+          type: object
+          nullable: true
+
+    MLEvent:
+      type: object
+      properties:
+        _id:
+          type: string
+        patientId:
+          type: string
+        deviceId:
+          type: string
+        event:
+          type: string
+          enum: [fall, convulsion, no_movement, irregular_breathing, unresponsive]
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        frameUrl:
+          type: string
+          nullable: true
+        metadata:
+          type: object
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+
+    Alert:
+      type: object
+      properties:
+        _id:
+          type: string
+        patientId:
+          type: string
+        type:
+          type: string
+        source:
+          type: string
+          enum: [sensor, ml]
+        severity:
+          type: string
+          enum: [critical, warning, info]
+        message:
+          type: string
+        vitalSnapshot:
+          type: object
+          nullable: true
+        mlConfidence:
+          type: number
+          nullable: true
+        doctorId:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        acknowledgedBy:
+          type: string
+          nullable: true
+        acknowledgedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        statusCode:
+          type: integer
+
+paths:
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: Authenticate user with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+                  refreshToken:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refreshToken
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        '200':
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+                  refreshToken:
+                    type: string
+        '401':
+          description: Invalid refresh token
+
+  /auth/otp/request:
+    post:
+      tags:
+        - Authentication
+      summary: Request OTP for phone login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - phone
+              properties:
+                phone:
+                  type: string
+      responses:
+        '200':
+          description: OTP sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: OTP sent successfully
+
+  /auth/otp/verify:
+    post:
+      tags:
+        - Authentication
+      summary: Verify OTP and login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - phone
+                - otp
+              properties:
+                phone:
+                  type: string
+                otp:
+                  type: string
+      responses:
+        '200':
+          description: OTP verified, logged in
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+                  refreshToken:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/User'
+
+  /admin/doctors:
+    get:
+      tags:
+        - Admin
+      summary: List doctors
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: List of doctors
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  doctors:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Doctor'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  limit:
+                    type: integer
+
+  /admin/doctor:
+    post:
+      tags:
+        - Admin
+      summary: Create new doctor
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+                - profile
+                - specialty
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                profile:
+                  $ref: '#/components/schemas/UserProfile'
+                specialty:
+                  type: string
+                credentials:
+                  type: array
+                  items:
+                    type: string
+                availability:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Availability'
+      responses:
+        '201':
+          description: Doctor created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  doctor:
+                    $ref: '#/components/schemas/Doctor'
+
+  /admin/doctor/{id}:
+    put:
+      tags:
+        - Admin
+      summary: Update doctor
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                specialty:
+                  type: string
+                credentials:
+                  type: array
+                  items:
+                    type: string
+                availability:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Availability'
+      responses:
+        '200':
+          description: Doctor updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  doctor:
+                    $ref: '#/components/schemas/Doctor'
+
+  /admin/assign:
+    post:
+      tags:
+        - Admin
+      summary: Assign patient to doctor
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - patientId
+                - doctorId
+                - from
+              properties:
+                patientId:
+                  type: string
+                doctorId:
+                  type: string
+                from:
+                  type: string
+                  format: date-time
+                notes:
+                  type: string
+      responses:
+        '201':
+          description: Assignment created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  assignment:
+                    $ref: '#/components/schemas/Assignment'
+
+  /admin/invoice:
+    post:
+      tags:
+        - Admin
+      summary: Create invoice
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - patientId
+                - items
+              properties:
+                patientId:
+                  type: string
+                items:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/InvoiceItem'
+                dueAt:
+                  type: string
+                  format: date-time
+      responses:
+        '201':
+          description: Invoice created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  invoice:
+                    $ref: '#/components/schemas/Invoice'
+                  pdfUrl:
+                    type: string
+
+  /admin/reports/revenue:
+    get:
+      tags:
+        - Admin
+      summary: Get revenue report
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Revenue report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revenue:
+                    type: number
+                  breakdown:
+                    type: array
+                    items:
+                      type: object
+
+  /doctor/patients:
+    get:
+      tags:
+        - Doctor
+      summary: Get assigned patients
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of patients
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  patients:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Patient'
+
+  /doctor/patient/{id}:
+    get:
+      tags:
+        - Doctor
+      summary: Get patient details
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Patient details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  patient:
+                    $ref: '#/components/schemas/Patient'
+                  latestVitals:
+                    $ref: '#/components/schemas/Vitals'
+                  alerts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Alert'
+                  prescriptions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Prescription'
+
+  /doctor/prescription:
+    post:
+      tags:
+        - Doctor
+      summary: Create prescription
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - patientId
+                - medicines
+                - validFrom
+              properties:
+                patientId:
+                  type: string
+                medicines:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Medicine'
+                tests:
+                  type: array
+                  items:
+                    type: string
+                notes:
+                  type: string
+                validFrom:
+                  type: string
+                  format: date-time
+                validUntil:
+                  type: string
+                  format: date-time
+      responses:
+        '201':
+          description: Prescription created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  prescription:
+                    $ref: '#/components/schemas/Prescription'
+
+  /doctor/vitals/{patientId}:
+    get:
+      tags:
+        - Doctor
+      summary: Get patient vitals
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: patientId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Patient vitals
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  vitals:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Vitals'
+
+  /doctor/alerts/{id}/acknowledge:
+    post:
+      tags:
+        - Doctor
+      summary: Acknowledge alert
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note:
+                  type: string
+      responses:
+        '200':
+          description: Alert acknowledged
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  alert:
+                    $ref: '#/components/schemas/Alert'
+
+  /patient/prescriptions:
+    get:
+      tags:
+        - Patient
+      summary: Get my prescriptions
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of prescriptions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  prescriptions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Prescription'
+
+  /patient/invoices:
+    get:
+      tags:
+        - Patient
+      summary: Get my invoices
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of invoices
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  invoices:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Invoice'
+
+  /patient/vitals:
+    get:
+      tags:
+        - Patient
+      summary: Get my vitals
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: My vitals
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  vitals:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Vitals'
+
+  /patient/assignedDoctor:
+    get:
+      tags:
+        - Patient
+      summary: Get my assigned doctor
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Assigned doctor
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  doctor:
+                    $ref: '#/components/schemas/Doctor'
+
+  /ingest/vitals:
+    post:
+      tags:
+        - Ingestion
+      summary: Ingest vitals data from device
+      security:
+        - deviceAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - deviceId
+                - patientId
+                - timestamp
+              properties:
+                deviceId:
+                  type: string
+                patientId:
+                  type: string
+                timestamp:
+                  type: string
+                  format: date-time
+                heartRate:
+                  type: number
+                bloodPressure:
+                  type: object
+                  properties:
+                    systolic:
+                      type: number
+                    diastolic:
+                      type: number
+                temperature:
+                  type: number
+                spO2:
+                  type: number
+                respiratoryRate:
+                  type: number
+                ivLevel:
+                  type: number
+                glucose:
+                  type: number
+                painScale:
+                  type: integer
+                raw:
+                  type: object
+      responses:
+        '200':
+          description: Vitals ingested
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  alertsTriggered:
+                    type: array
+                    items:
+                      type: string
+
+  /ingest/ml:
+    post:
+      tags:
+        - Ingestion
+      summary: Ingest ML event from device
+      security:
+        - deviceAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - deviceId
+                - patientId
+                - event
+                - confidence
+                - timestamp
+              properties:
+                deviceId:
+                  type: string
+                patientId:
+                  type: string
+                event:
+                  type: string
+                  enum: [fall, convulsion, no_movement, irregular_breathing, unresponsive]
+                confidence:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+                frameUrl:
+                  type: string
+                timestamp:
+                  type: string
+                  format: date-time
+                metadata:
+                  type: object
+      responses:
+        '200':
+          description: ML event ingested
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  alertsTriggered:
+                    type: array
+                    items:
+                      type: string
+
+  /alerts:
+    get:
+      tags:
+        - Alerts
+      summary: Get alerts
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: patientId
+          in: query
+          schema:
+            type: string
+        - name: severity
+          in: query
+          schema:
+            type: string
+            enum: [critical, warning, info]
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: acknowledged
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: List of alerts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  alerts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Alert'
+
+  /alerts/{id}/acknowledge:
+    post:
+      tags:
+        - Alerts
+      summary: Acknowledge alert
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note:
+                  type: string
+      responses:
+        '200':
+          description: Alert acknowledged
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  alert:
+                    $ref: '#/components/schemas/Alert'

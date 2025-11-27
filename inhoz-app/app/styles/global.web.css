@@ -1,0 +1,28 @@
+/* Add this to handle web-specific styles */
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+#root {
+  display: flex;
+  height: 100%;
+  flex: 1;
+}
+
+/* Handle scrolling on web */
+.scroll-container {
+  -webkit-overflow-scrolling: touch;
+  overflow-y: auto;
+}
+
+/* Responsive design for web */
+@media (min-width: 768px) {
+  .container {
+    max-width: 768px;
+    margin: 0 auto;
+  }
+} 
