@@ -1,0 +1,557 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { FaHeartbeat, FaThermometerHalf, FaLungs, FaTint, FaExclamationCircle, FaPrescriptionBottleAlt, FaFileInvoiceDollar, FaUserMd, FaBell } from 'react-icons/fa';
+import apiClient from '../utils/api';
+import { getSocket, initializeSocket } from '../utils/socket';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+
+const VitalsCard = ({ icon: Icon, title, value, unit, status, color }) => (
+  <div className={`bg-white p-6 rounded-lg shadow-md border-l-4 ${color}`}>
+    <div className="flex items-center justify-between">
+      <div className="flex items-center">
+        <Icon className={`text-4xl mr-4 ${color.replace('border', 'text')}`} />
+        <div>
+          <h3 className="text-lg font-semibold text-gray-600">{title}</h3>
+          <p className="text-3xl font-bold">
+            {value} <span className="text-lg text-gray-500">{unit}</span>
+          </p>
+        </div>
+      </div>
+      <div className={`text-sm font-semibold px-3 py-1 rounded-full ${
+        status === 'normal' ? 'bg-green-100 text-green-800' :
+        status === 'warning' ? 'bg-yellow-100 text-yellow-800' :
+        'bg-red-100 text-red-800'
+      }`}>
+        {status}
+      </div>
+    </div>
+  </div>
+);
+
+const AlertsList = ({ alerts, onAcknowledge }) => (
+  <div className="bg-white p-6 rounded-lg shadow-md">
+    <h3 className="text-2xl font-semibold mb-4 flex items-center">
+      <FaBell className="mr-2 text-red-500" />
+      My Alerts
+    </h3>
+    {alerts.length === 0 ? (
+      <p className="text-gray-500 text-center py-4">No active alerts. You're doing great! 👍</p>
+    ) : (
+      <div className="space-y-3">
+        {alerts.map((alert) => (
+          <div
+            key={alert.id}
+            className={`p-4 rounded-lg border-l-4 ${
+              alert.severity === 'critical' ? 'bg-red-50 border-red-500' :
+              alert.severity === 'warning' ? 'bg-yellow-50 border-yellow-500' :
+              'bg-blue-50 border-blue-500'
+            }`}
+          >
+            <div className="flex justify-between items-start">
+              <div>
+                <h4 className="font-semibold text-lg">{alert.type}</h4>
+                <p className="text-gray-600 mt-1">{alert.message}</p>
+                <p className="text-sm text-gray-500 mt-2">
+                  {new Date(alert.timestamp).toLocaleString()}
+                </p>
+              </div>
+              <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                alert.severity === 'critical' ? 'bg-red-500 text-white' :
+                alert.severity === 'warning' ? 'bg-yellow-500 text-white' :
+                'bg-blue-500 text-white'
+              }`}>
+                {alert.severity}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+);
+
+const PrescriptionsList = ({ prescriptions }) => (
+  <div className="bg-white p-6 rounded-lg shadow-md mt-6">
+    <h3 className="text-2xl font-semibold mb-4 flex items-center">
+      <FaPrescriptionBottleAlt className="mr-2 text-green-500" />
+      My Prescriptions
+    </h3>
+    {prescriptions.length === 0 ? (
+      <p className="text-gray-500 text-center py-4">No active prescriptions</p>
+    ) : (
+      <div className="space-y-4">
+        {prescriptions.map((prescription) => (
+          <div key={prescription.id} className="p-4 bg-green-50 rounded-lg border-l-4 border-green-500">
+            <div className="flex justify-between items-start">
+              <div>
+                <h4 className="font-semibold text-lg text-green-900">{prescription.medication}</h4>
+                <p className="text-gray-700 mt-1">
+                  <strong>Dosage:</strong> {prescription.dosage}
+                </p>
+                <p className="text-gray-700">
+                  <strong>Frequency:</strong> {prescription.frequency}
+                </p>
+                <p className="text-gray-700">
+                  <strong>Duration:</strong> {prescription.duration}
+                </p>
+                <p className="text-sm text-gray-600 mt-2">
+                  Prescribed by: Dr. {prescription.doctorName}
+                </p>
+                <p className="text-sm text-gray-500">
+                  Date: {new Date(prescription.date).toLocaleDateString()}
+                </p>
+              </div>
+              <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                prescription.status === 'active' ? 'bg-green-500 text-white' : 'bg-gray-400 text-white'
+              }`}>
+                {prescription.status}
+              </span>
+            </div>
+            {prescription.notes && (
+              <div className="mt-3 p-3 bg-white rounded">
+                <p className="text-sm text-gray-600"><strong>Notes:</strong> {prescription.notes}</p>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+);
+
+const InvoicesList = ({ invoices }) => (
+  <div className="bg-white p-6 rounded-lg shadow-md mt-6">
+    <h3 className="text-2xl font-semibold mb-4 flex items-center">
+      <FaFileInvoiceDollar className="mr-2 text-blue-500" />
+      My Invoices
+    </h3>
+    {invoices.length === 0 ? (
+      <p className="text-gray-500 text-center py-4">No invoices found</p>
+    ) : (
+      <div className="overflow-x-auto">
+        <table className="min-w-full">
+          <thead>
+            <tr className="bg-blue-500 text-white text-lg leading-normal">
+              <th className="py-3 px-6 text-left">Invoice ID</th>
+              <th className="py-3 px-6 text-left">Date</th>
+              <th className="py-3 px-6 text-left">Amount</th>
+              <th className="py-3 px-6 text-left">Status</th>
+              <th className="py-3 px-6 text-left">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="text-gray-600 text-base">
+            {invoices.map((invoice, index) => (
+              <tr key={invoice.id} className={index % 2 === 0 ? 'bg-gray-100' : 'bg-white'}>
+                <td className="py-3 px-6 text-left">{invoice.invoiceId}</td>
+                <td className="py-3 px-6 text-left">{new Date(invoice.date).toLocaleDateString()}</td>
+                <td className="py-3 px-6 text-left font-semibold">${invoice.amount}</td>
+                <td className="py-3 px-6 text-left">
+                  <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                    invoice.status === 'paid' ? 'bg-green-200 text-green-800' :
+                    invoice.status === 'pending' ? 'bg-yellow-200 text-yellow-800' :
+                    'bg-red-200 text-red-800'
+                  }`}>
+                    {invoice.status}
+                  </span>
+                </td>
+                <td className="py-3 px-6 text-left">
+                  <button className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-3 rounded text-sm">
+                    View Details
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+  </div>
+);
+
+const VitalsChart = ({ vitalsHistory }) => {
+  if (!vitalsHistory || vitalsHistory.length === 0) {
+    return (
+      <div className="bg-white p-6 rounded-lg shadow-md mt-6">
+        <h3 className="text-2xl font-semibold mb-4">Vitals History</h3>
+        <p className="text-gray-500 text-center py-4">No vitals history available</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white p-6 rounded-lg shadow-md mt-6">
+      <h3 className="text-2xl font-semibold mb-4">Vitals History</h3>
+      <div className="h-80">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={vitalsHistory}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="time" />
+            <YAxis />
+            <Tooltip />
+            <Legend />
+            <Line type="monotone" dataKey="heartRate" stroke="#ef4444" name="Heart Rate" />
+            <Line type="monotone" dataKey="spo2" stroke="#3b82f6" name="SpO2" />
+            <Line type="monotone" dataKey="temperature" stroke="#f59e0b" name="Temperature" />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+};
+
+const DoctorInfo = ({ doctor }) => (
+  <div className="bg-white p-6 rounded-lg shadow-md">
+    <h3 className="text-2xl font-semibold mb-4 flex items-center">
+      <FaUserMd className="mr-2 text-blue-500" />
+      My Doctor
+    </h3>
+    {doctor ? (
+      <div className="space-y-2">
+        <p className="text-lg"><strong>Name:</strong> Dr. {doctor.name}</p>
+        <p className="text-lg"><strong>Specialization:</strong> {doctor.specialization}</p>
+        <p className="text-lg"><strong>Email:</strong> {doctor.email}</p>
+        <p className="text-lg"><strong>Phone:</strong> {doctor.phone}</p>
+      </div>
+    ) : (
+      <p className="text-gray-500">No doctor assigned yet</p>
+    )}
+  </div>
+);
+
+const PatientDashboard = () => {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const [patientInfo, setPatientInfo] = useState({
+    name: '',
+    hospitalId: '',
+    room: '',
+    age: '',
+    gender: '',
+  });
+
+  const [currentVitals, setCurrentVitals] = useState({
+    heartRate: { value: '--', status: 'normal' },
+    spo2: { value: '--', status: 'normal' },
+    temperature: { value: '--', status: 'normal' },
+    bloodPressure: { value: '--/--', status: 'normal' },
+    glucose: { value: '--', status: 'normal' },
+  });
+
+  const [alerts, setAlerts] = useState([]);
+  const [prescriptions, setPrescriptions] = useState([]);
+  const [invoices, setInvoices] = useState([]);
+  const [vitalsHistory, setVitalsHistory] = useState([]);
+  const [doctor, setDoctor] = useState(null);
+
+  const getVitalStatus = (type, value) => {
+    if (!value || value === '--') return 'normal';
+    
+    switch(type) {
+      case 'heartRate':
+        if (value > 100 || value < 60) return 'warning';
+        if (value > 120 || value < 50) return 'critical';
+        return 'normal';
+      case 'spo2':
+        if (value < 95) return 'warning';
+        if (value < 90) return 'critical';
+        return 'normal';
+      case 'temperature':
+        if (value > 38 || value < 36) return 'warning';
+        if (value > 39 || value < 35) return 'critical';
+        return 'normal';
+      case 'systolic':
+        if (value > 140 || value < 90) return 'warning';
+        if (value > 180 || value < 80) return 'critical';
+        return 'normal';
+      default:
+        return 'normal';
+    }
+  };
+
+  useEffect(() => {
+    const fetchPatientData = async () => {
+      try {
+        setLoading(true);
+
+        // Fetch patient profile
+        const profileResponse = await apiClient.getPatientProfile();
+        const profile = profileResponse?.data || {};
+        
+        setPatientInfo({
+          name: `${profile.userId?.profile?.firstName || ''} ${profile.userId?.profile?.lastName || ''}`,
+          hospitalId: profile.hospitalId || 'N/A',
+          room: profile.roomNo || 'N/A',
+          age: profile.userId?.profile?.age || 'N/A',
+          gender: profile.userId?.profile?.gender || 'N/A',
+        });
+
+        // Fetch doctor info
+        if (profile.doctorId) {
+          setDoctor({
+            name: `${profile.doctorId.userId?.profile?.firstName || ''} ${profile.doctorId.userId?.profile?.lastName || ''}`,
+            specialization: profile.doctorId.specialization || 'General',
+            email: profile.doctorId.userId?.email || 'N/A',
+            phone: profile.doctorId.userId?.profile?.phone || 'N/A',
+          });
+        }
+
+        // Fetch latest vitals
+        const vitalsResponse = await apiClient.getPatientOwnVitals();
+        const vitals = vitalsResponse?.data || [];
+        
+        if (vitals.length > 0) {
+          const latest = vitals[0];
+          setCurrentVitals({
+            heartRate: { 
+              value: latest.heartRate || '--', 
+              status: getVitalStatus('heartRate', latest.heartRate) 
+            },
+            spo2: { 
+              value: latest.spo2 || '--', 
+              status: getVitalStatus('spo2', latest.spo2) 
+            },
+            temperature: { 
+              value: latest.temperature || '--', 
+              status: getVitalStatus('temperature', latest.temperature) 
+            },
+            bloodPressure: { 
+              value: `${latest.systolic || '--'}/${latest.diastolic || '--'}`, 
+              status: getVitalStatus('systolic', latest.systolic) 
+            },
+            glucose: { 
+              value: latest.glucose || '--', 
+              status: 'normal' 
+            },
+          });
+        }
+
+        // Format vitals history for chart
+        const history = vitals.slice(0, 20).reverse().map(v => ({
+          time: new Date(v.timestamp).toLocaleTimeString(),
+          heartRate: v.heartRate,
+          spo2: v.spo2,
+          temperature: v.temperature,
+        }));
+        setVitalsHistory(history);
+
+        // Fetch alerts
+        const alertsResponse = await apiClient.getPatientAlerts();
+        const alertsData = alertsResponse?.data || [];
+        setAlerts(alertsData.map(alert => ({
+          id: alert._id,
+          type: alert.type,
+          message: alert.message,
+          severity: alert.severity,
+          timestamp: alert.createdAt,
+          acknowledged: alert.acknowledged,
+        })).filter(a => !a.acknowledged));
+
+        // Fetch prescriptions
+        const prescriptionsResponse = await apiClient.getPatientPrescriptionsOwn();
+        const prescriptionsData = prescriptionsResponse?.data || [];
+        setPrescriptions(prescriptionsData.map(prescription => ({
+          id: prescription._id,
+          medication: prescription.medications?.map(m => m.name).join(', ') || 'N/A',
+          dosage: prescription.medications?.[0]?.dosage || 'N/A',
+          frequency: prescription.medications?.[0]?.frequency || 'N/A',
+          duration: prescription.medications?.[0]?.duration || 'N/A',
+          doctorName: `${prescription.doctorId?.userId?.profile?.firstName || ''} ${prescription.doctorId?.userId?.profile?.lastName || ''}`,
+          date: prescription.createdAt,
+          status: prescription.status || 'active',
+          notes: prescription.notes,
+        })));
+
+        // Fetch invoices
+        const invoicesResponse = await apiClient.getPatientInvoices();
+        const invoicesData = invoicesResponse?.data || [];
+        setInvoices(invoicesData.map(invoice => ({
+          id: invoice._id,
+          invoiceId: invoice.invoiceId,
+          amount: invoice.totalAmount,
+          date: invoice.createdAt,
+          status: invoice.status,
+        })));
+
+      } catch (err) {
+        console.error('Error fetching patient data:', err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPatientData();
+  }, []);
+
+  // Setup Socket.IO for real-time vitals updates
+  useEffect(() => {
+    const token = apiClient.getToken();
+    if (!token) return;
+
+    try {
+      initializeSocket(token);
+      const socket = getSocket();
+
+      socket.on('vitals:update', (vitals) => {
+        console.log('📊 Real-time vitals update:', vitals);
+        
+        setCurrentVitals({
+          heartRate: { 
+            value: vitals.heartRate || '--', 
+            status: getVitalStatus('heartRate', vitals.heartRate) 
+          },
+          spo2: { 
+            value: vitals.spo2 || '--', 
+            status: getVitalStatus('spo2', vitals.spo2) 
+          },
+          temperature: { 
+            value: vitals.temperature || '--', 
+            status: getVitalStatus('temperature', vitals.temperature) 
+          },
+          bloodPressure: { 
+            value: `${vitals.systolic || '--'}/${vitals.diastolic || '--'}`, 
+            status: getVitalStatus('systolic', vitals.systolic) 
+          },
+          glucose: { 
+            value: vitals.glucose || '--', 
+            status: 'normal' 
+          },
+        });
+
+        // Update history
+        setVitalsHistory(prev => [...prev.slice(-19), {
+          time: new Date().toLocaleTimeString(),
+          heartRate: vitals.heartRate,
+          spo2: vitals.spo2,
+          temperature: vitals.temperature,
+        }]);
+      });
+
+      socket.on('alert:new', (alert) => {
+        console.log('🚨 New alert:', alert);
+        setAlerts(prev => [{
+          id: alert._id,
+          type: alert.type,
+          message: alert.message,
+          severity: alert.severity,
+          timestamp: alert.createdAt,
+          acknowledged: false,
+        }, ...prev]);
+      });
+
+      socket.on('prescription:new', (prescription) => {
+        console.log('💊 New prescription:', prescription);
+        // Refresh prescriptions list
+      });
+
+      return () => {
+        socket.off('vitals:update');
+        socket.off('alert:new');
+        socket.off('prescription:new');
+      };
+    } catch (err) {
+      console.error('Socket.IO setup error:', err);
+    }
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="p-6 flex justify-center items-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-xl text-gray-600">Loading your dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          <p className="font-bold">Error loading dashboard</p>
+          <p>{error}</p>
+        </div>
+        <button 
+          onClick={() => window.location.reload()}
+          className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6">
+      <div className="mb-6">
+        <h2 className="text-3xl font-bold">Welcome, {patientInfo.name.split(' ')[0]}!</h2>
+        <p className="text-gray-600 mt-1">
+          Hospital ID: {patientInfo.hospitalId} | Room: {patientInfo.room}
+        </p>
+      </div>
+
+      {/* Current Vitals */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+        <VitalsCard
+          icon={FaHeartbeat}
+          title="Heart Rate"
+          value={currentVitals.heartRate.value}
+          unit="bpm"
+          status={currentVitals.heartRate.status}
+          color="border-red-500"
+        />
+        <VitalsCard
+          icon={FaLungs}
+          title="SpO2"
+          value={currentVitals.spo2.value}
+          unit="%"
+          status={currentVitals.spo2.status}
+          color="border-blue-500"
+        />
+        <VitalsCard
+          icon={FaThermometerHalf}
+          title="Temperature"
+          value={currentVitals.temperature.value}
+          unit="°C"
+          status={currentVitals.temperature.status}
+          color="border-orange-500"
+        />
+        <VitalsCard
+          icon={FaExclamationCircle}
+          title="Blood Pressure"
+          value={currentVitals.bloodPressure.value}
+          unit="mmHg"
+          status={currentVitals.bloodPressure.status}
+          color="border-purple-500"
+        />
+        <VitalsCard
+          icon={FaTint}
+          title="Glucose"
+          value={currentVitals.glucose.value}
+          unit="mg/dL"
+          status={currentVitals.glucose.status}
+          color="border-green-500"
+        />
+      </div>
+
+      {/* Two Column Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <AlertsList alerts={alerts} />
+          <VitalsChart vitalsHistory={vitalsHistory} />
+          <PrescriptionsList prescriptions={prescriptions} />
+          <InvoicesList invoices={invoices} />
+        </div>
+        
+        <div>
+          <DoctorInfo doctor={doctor} />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default PatientDashboard;

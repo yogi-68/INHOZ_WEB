@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
+import apiClient from '../utils/api';
+import { initializeSocket } from '../utils/socket';
 
 const LoginForm = () => {
   const navigate = useNavigate();
@@ -10,15 +12,45 @@ const LoginForm = () => {
     password: ''
   });
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Add your authentication logic here
-    if (formData.username && formData.password) {
-      localStorage.setItem('isAuthenticated', 'true');
-      navigate('/');
-    } else {
-      setError(translate('invalidCredentials'));
+    setError('');
+    setLoading(true);
+
+    try {
+      const response = await apiClient.login(formData.username, formData.password);
+      
+      if (response.success && response.data) {
+        // Store authentication data
+        localStorage.setItem('isAuthenticated', 'true');
+        localStorage.setItem('userRole', response.data.user.role);
+        
+        // Initialize Socket.IO connection
+        initializeSocket(response.data.accessToken);
+        
+        // Navigate based on role
+        const role = response.data.user.role;
+        console.log('✅ Login successful! Role:', role);
+        
+        if (role === 'admin') {
+          navigate('/admin');
+        } else if (role === 'doctor') {
+          navigate('/doctor');
+        } else if (role === 'patient') {
+          navigate('/patient');
+        } else {
+          navigate('/');
+        }
+      } else {
+        setError(response.error || 'Login failed');
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+      setError(err.message || translate('invalidCredentials'));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -65,10 +97,18 @@ const LoginForm = () => {
           </div>
           <button
             type="submit"
-            className="w-full bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors duration-200"
+            disabled={loading}
+            className="w-full bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {translate('login')}
+            {loading ? 'Logging in...' : translate('login')}
           </button>
+          
+          <div className="mt-4 text-sm text-gray-600 text-center">
+            <p className="font-semibold mb-2">Test Credentials:</p>
+            <p>Admin: admin@inhoz.com / admin123</p>
+            <p>Doctor: dr.smith@inhoz.com / doctor123</p>
+            <p>Patient: john.doe@inhoz.com / patient123</p>
+          </div>
         </form>
       </div>
     </div>
