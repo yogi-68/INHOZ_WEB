@@ -44,7 +44,7 @@ const userSchema = new mongoose.Schema({
 });
 
 // Indexes
-userSchema.index({ email: 1 });
+// Note: email index is automatic via unique: true
 userSchema.index({ role: 1 });
 userSchema.index({ deletedAt: 1 });
 

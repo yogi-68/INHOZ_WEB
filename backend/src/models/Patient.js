@@ -49,7 +49,7 @@ const patientSchema = new mongoose.Schema({
 });
 
 // Indexes
-patientSchema.index({ userId: 1 });
+// Note: userId index is automatic via unique: true
 patientSchema.index({ assignedDoctorId: 1 });
 patientSchema.index({ hospitalId: 1 });
 patientSchema.index({ status: 1 });

@@ -34,7 +34,7 @@ const doctorSchema = new mongoose.Schema({
 });
 
 // Indexes
-doctorSchema.index({ userId: 1 });
+// Note: userId index is automatic via unique: true
 doctorSchema.index({ specialty: 1 });
 doctorSchema.index({ deletedAt: 1 });
 
