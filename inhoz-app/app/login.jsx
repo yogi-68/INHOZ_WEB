@@ -41,7 +41,7 @@ const Login = () => {
       description: 'Patient care & monitoring',
       icon: 'user-md',
       gradient: ['#2563eb', '#1e40af'],
-      testCreds: { email: 'doctor@inhoz.com', password: 'doctor123' }
+      testCreds: { email: 'dr.smith@inhoz.com', password: 'doctor123' }
     },
     {
       id: 'patient',
@@ -49,7 +49,7 @@ const Login = () => {
       description: 'View your health records',
       icon: 'heartbeat',
       gradient: ['#14b8a6', '#0d9488'],
-      testCreds: { email: 'patient@inhoz.com', password: 'patient123' }
+      testCreds: { email: 'john.doe@example.com', password: 'patient123' }
     }
   ];
 
@@ -62,10 +62,13 @@ const Login = () => {
     setLoading(true);
 
     try {
+      console.log('🔄 Mobile: Attempting login with:', { email, role: selectedRole });
       const response = await apiClient.login(email, password);
 
-      if (response.success) {
-        const { user } = response.data;
+      console.log('📱 Mobile API Response:', response);
+
+      if (response.success && response.data) {
+        const { user, accessToken, refreshToken } = response.data;
 
         // Verify role matches
         if (user.role !== selectedRole) {
@@ -74,17 +77,54 @@ const Login = () => {
           return;
         }
 
-        // Store tokens
+        // Store tokens (already done in apiClient.login, but ensuring consistency)
         await AsyncStorage.setItem('accessToken', accessToken);
         await AsyncStorage.setItem('refreshToken', refreshToken);
         await AsyncStorage.setItem('user', JSON.stringify(user));
 
+        console.log('✅ Mobile: Login successful, navigating to:', selectedRole);
+        
         // Navigate to role dashboard
         router.replace(`/${selectedRole}`);
+      } else {
+        Alert.alert('Login Failed', response.error || 'Invalid credentials');
       }
     } catch (error) {
-      console.error('Login error:', error);
-      Alert.alert('Login Failed', error.response?.data?.error || 'Invalid credentials');
+      console.error('🚨 Mobile Login error:', error);
+      
+      // Check if it's a network/connection error
+      if (error.code === 'ERR_NETWORK' || error.code === 'ERR_CONNECTION_REFUSED' || 
+          error.message.includes('Network Error') || error.message.includes('fetch')) {
+        
+        console.log('🔧 Mobile: Backend unavailable - offering development bypass');
+        
+        Alert.alert(
+          'Backend Unavailable', 
+          'The server is currently unavailable. Would you like to continue in development mode?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Continue', 
+              onPress: async () => {
+                // Set development auth data
+                await AsyncStorage.setItem('accessToken', 'dev-token');
+                await AsyncStorage.setItem('refreshToken', 'dev-refresh-token');
+                await AsyncStorage.setItem('user', JSON.stringify({
+                  id: `dev-${selectedRole}-1`,
+                  name: `Dev ${selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1)}`,
+                  email: email,
+                  role: selectedRole
+                }));
+                
+                console.log('🔧 Mobile: Development bypass activated, navigating to:', selectedRole);
+                router.replace(`/${selectedRole}`);
+              }
+            }
+          ]
+        );
+      } else {
+        Alert.alert('Login Failed', error.response?.data?.error || error.message || 'Invalid credentials');
+      }
     } finally {
       setLoading(false);
     }

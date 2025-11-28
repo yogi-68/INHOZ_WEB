@@ -151,7 +151,17 @@ class ApiClient {
   }
 
   async createPrescription(prescriptionData) {
-    const response = await this.client.post('/doctor/prescriptions', prescriptionData);
+    const { patientId, medications, notes } = prescriptionData;
+    const response = await this.client.post(`/doctor/patients/${patientId}/prescriptions`, {
+      medicines: medications.map(med => ({
+        name: med.name,
+        dose: med.dosage,
+        frequency: med.frequency,
+        durationDays: parseInt(med.duration.match(/\d+/)?.[0] || 30)
+      })),
+      notes,
+      validFrom: new Date().toISOString()
+    });
     return response.data;
   }
 
@@ -184,6 +194,30 @@ class ApiClient {
   async getPatientAlertsOwn() {
     const response = await this.client.get('/patient/alerts');
     return response.data;
+  }
+
+  // Matrix server live vitals
+  async getLiveVitals() {
+    try {
+      const response = await fetch(MATRIX_API_URL);
+      const data = await response.json();
+      if (data.success && data.data && data.data.length > 0) {
+        const latest = data.data[0];
+        return {
+          heartRate: latest.BPM || 0,
+          oxygenLevel: latest.spO2 || 0,
+          temperature: latest.temperature || 0,
+          bloodPressure: latest.bloodPressure || '0/0',
+          ecgValue: latest.ecgValue || 0,
+          calories: latest.calories || 0,
+          timestamp: latest.timestamp || new Date().toISOString()
+        };
+      }
+      return null;
+    } catch (error) {
+      console.error('Failed to fetch live vitals:', error);
+      return null;
+    }
   }
 
   // Helper methods

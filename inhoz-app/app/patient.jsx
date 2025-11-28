@@ -245,10 +245,16 @@ const PatientDashboard = () => {
         });
       }
 
-      const vitalsResponse = await apiClient.getPatientOwnVitals();
-      const vitalsData = vitalsResponse?.data || [];
-      if (vitalsData.length > 0) {
-        setLatestVitals(vitalsData[0]);
+      // Get live vitals from Matrix server first, fallback to API vitals
+      const liveVitals = await apiClient.getLiveVitals();
+      if (liveVitals) {
+        setLatestVitals(liveVitals);
+      } else {
+        const vitalsResponse = await apiClient.getPatientOwnVitals();
+        const vitalsData = vitalsResponse?.data || [];
+        if (vitalsData.length > 0) {
+          setLatestVitals(vitalsData[0]);
+        }
       }
 
       const prescriptionsResponse = await apiClient.getPatientPrescriptionsOwn();
@@ -261,7 +267,12 @@ const PatientDashboard = () => {
             ? `Dr. ${prescription.doctorId.userId.profile.firstName} ${prescription.doctorId.userId.profile.lastName}`
             : 'Doctor',
           date: prescription.createdAt,
-          medications: prescription.medications || [],
+          medications: prescription.medicines?.map(med => ({
+            name: med.name,
+            dosage: med.dose,
+            frequency: med.frequency,
+            duration: `${med.durationDays} days`
+          })) || [],
           notes: prescription.notes || '',
           status: prescription.status || 'active',
         }))

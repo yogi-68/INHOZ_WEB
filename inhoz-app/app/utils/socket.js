@@ -1,50 +1,78 @@
 import io from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const SOCKET_URL = 'http://localhost:3001';
-// For Android emulator: http://10.0.2.2:3001
-// For iOS simulator: http://localhost:3001
-// For physical device: http://YOUR_COMPUTER_IP:3001
+const SOCKET_URL = 'https://inhoz-backend.onrender.com';
+// Using Render backend for production
+// Local development: http://localhost:3001
 
 let socket = null;
+let isInitializing = false;
 
 export const initializeSocket = async () => {
-  const token = await AsyncStorage.getItem('accessToken');
-  
-  if (!token) {
-    console.error('No token found, cannot initialize socket');
+  try {
+    // Prevent multiple simultaneous initializations
+    if (isInitializing) {
+      console.log('Socket initialization already in progress...');
+      return socket;
+    }
+
+    if (socket?.connected) {
+      console.log('Socket already connected');
+      return socket;
+    }
+
+    isInitializing = true;
+    const token = await AsyncStorage.getItem('accessToken');
+    
+    if (!token) {
+      console.warn('No token found for socket connection - continuing without auth');
+      isInitializing = false;
+      return null;
+    }
+
+    // Disconnect existing socket if any
+    if (socket) {
+      socket.disconnect();
+      socket = null;
+    }
+
+    socket = io(SOCKET_URL, {
+      auth: { token },
+      transports: ['websocket', 'polling'], // Fallback to polling if websocket fails
+      reconnection: true,
+      reconnectionDelay: 2000,
+      reconnectionAttempts: 3,
+      timeout: 10000,
+      autoConnect: true,
+    });
+
+    socket.on('connect', () => {
+      console.log('✅ Socket connected:', socket.id);
+      isInitializing = false;
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.log('Socket disconnected:', reason);
+      isInitializing = false;
+    });
+
+    socket.on('connect_error', (error) => {
+      console.warn('Socket connection error (non-critical):', error.message);
+      isInitializing = false;
+      // Don't throw error - app should work without real-time updates
+    });
+
+    socket.on('error', (error) => {
+      console.warn('Socket error (non-critical):', error.message);
+      // Don't throw error - app should work without real-time updates
+    });
+
+    return socket;
+  } catch (error) {
+    console.warn('Socket initialization failed (non-critical):', error.message);
+    isInitializing = false;
     return null;
   }
-
-  if (socket?.connected) {
-    return socket;
-  }
-
-  socket = io(SOCKET_URL, {
-    auth: { token },
-    transports: ['websocket'],
-    reconnection: true,
-    reconnectionDelay: 1000,
-    reconnectionAttempts: 5,
-  });
-
-  socket.on('connect', () => {
-    console.log('✅ Socket connected:', socket.id);
-  });
-
-  socket.on('disconnect', (reason) => {
-    console.log('❌ Socket disconnected:', reason);
-  });
-
-  socket.on('connect_error', (error) => {
-    console.error('Socket connection error:', error.message);
-  });
-
-  socket.on('error', (error) => {
-    console.error('Socket error:', error);
-  });
-
-  return socket;
 };
 
 export const getSocket = () => {

@@ -244,6 +244,27 @@ const DoctorDashboard = () => {
   useEffect(() => {
     fetchDashboardData();
     setupSocketIO();
+
+    // Poll for live vitals every 15 seconds - GLOBAL for all patients
+    const vitalsInterval = setInterval(async () => {
+      try {
+        const liveVitals = await apiClient.getLiveVitals();
+        if (liveVitals) {
+          // Apply same vitals to ALL patients globally
+          setPatients(prev => prev.map(p => ({
+            ...p,
+            latestVitals: {
+              ...liveVitals,
+              patientId: p.id
+            }
+          })));
+        }
+      } catch (error) {
+        console.error('Live vitals update error:', error);
+      }
+    }, 15000);
+
+    return () => clearInterval(vitalsInterval);
   }, []);
 
   const setupSocketIO = async () => {
@@ -290,6 +311,9 @@ const DoctorDashboard = () => {
       const patientsResponse = await apiClient.getDoctorPatients();
       const patientsData = patientsResponse?.data || [];
 
+      // Fetch live vitals from Matrix server
+      const liveVitals = await apiClient.getLiveVitals();
+
       setPatients(
         patientsData.map((patient) => ({
           id: patient._id,
@@ -297,7 +321,11 @@ const DoctorDashboard = () => {
           hospitalId: patient.hospitalId,
           room: patient.roomNo,
           status: patient.status,
-          latestVitals: patient.latestVitals || null,
+          // GLOBAL: Apply live Matrix vitals to ALL patients
+          latestVitals: liveVitals ? {
+            ...liveVitals,
+            patientId: patient._id
+          } : (patient.latestVitals || null),
           alertCount: patient.unacknowledgedAlerts || 0,
         }))
       );
