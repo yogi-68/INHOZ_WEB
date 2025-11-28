@@ -33,9 +33,12 @@ const AdminDashboard = () => {
   ];
 
   const handleLogout = () => {
+    // Clear all auth-related items
     localStorage.removeItem('isAuthenticated');
     localStorage.removeItem('userRole');
-    localStorage.removeItem('token');
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
     window.location.href = '/login';
   };
 

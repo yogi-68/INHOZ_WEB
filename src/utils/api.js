@@ -137,6 +137,11 @@ class APIClient {
     return this.request(`/doctor/alerts${queryString ? '?' + queryString : ''}`);
   }
 
+  // Alias for compatibility
+  async getAlerts(params = {}) {
+    return this.getDoctorAlerts(params);
+  }
+
   async acknowledgeAlert(alertId) {
     return this.request(`/doctor/alerts/${alertId}/acknowledge`, {
       method: 'PUT',

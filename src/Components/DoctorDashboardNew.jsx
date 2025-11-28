@@ -14,6 +14,7 @@ const DoctorDashboardNew = () => {
   // Real data from API
   const [patients, setPatients] = useState([]);
   const [alerts, setAlerts] = useState([]);
+  const [liveVitals, setLiveVitals] = useState([]);
   const [userInfo, setUserInfo] = useState({
     name: 'Loading...',
     email: '',
@@ -63,12 +64,57 @@ const DoctorDashboardNew = () => {
         setAlerts(alertsResponse.data || []);
       }
 
+      // Fetch live vitals
+      await fetchLiveVitals();
+
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
       setError(err.message);
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchLiveVitals = async () => {
+    try {
+      // Fetch latest vitals for all assigned patients
+      const patientsResponse = await apiClient.getDoctorPatients();
+      if (patientsResponse.success && patientsResponse.data) {
+        const vitalsPromises = patientsResponse.data.map(async (patient) => {
+          try {
+            const vitalsResponse = await apiClient.getPatientVitals(patient._id, { limit: 1 });
+            if (vitalsResponse.success && vitalsResponse.data && vitalsResponse.data.length > 0) {
+              return {
+                ...vitalsResponse.data[0],
+                patientId: patient
+              };
+            }
+            return null;
+          } catch (err) {
+            console.error(`Error fetching vitals for patient ${patient._id}:`, err);
+            return null;
+          }
+        });
+
+        const vitalsData = await Promise.all(vitalsPromises);
+        const validVitals = vitalsData.filter(v => v !== null);
+        setLiveVitals(validVitals);
+      }
+    } catch (err) {
+      console.error('Error fetching live vitals:', err);
+    }
+  };
+
+  const getTimeAgo = (date) => {
+    const seconds = Math.floor((new Date() - date) / 1000);
+    
+    if (seconds < 60) return `${seconds}s ago`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
   };
 
   const handleAcknowledgeAlert = async (alertId) => {
@@ -85,6 +131,12 @@ const DoctorDashboardNew = () => {
   };
 
   const handleLogout = () => {
+    // Clear all auth-related items
+    localStorage.removeItem('isAuthenticated');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
     apiClient.logout();
     window.location.href = '/login';
   };
@@ -192,54 +244,80 @@ const DoctorDashboardNew = () => {
         return (
           <div className="space-y-6">
             <div className="bg-white rounded-xl shadow-xl p-6">
-              <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
-                <FaHeartbeat className="text-red-500 mr-3" />
-                Live Patient Monitoring
-              </h2>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="border-2 border-gray-200 rounded-lg p-6">
-                  <h3 className="font-semibold text-gray-800 mb-4">Patient: John Doe</h3>
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Heart Rate:</span>
-                      <span className="font-bold text-pink-600">72 bpm</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Blood Pressure:</span>
-                      <span className="font-bold text-blue-600">120/80 mmHg</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Temperature:</span>
-                      <span className="font-bold text-orange-600">98.6°F</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">SpO2:</span>
-                      <span className="font-bold text-green-600">98%</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="border-2 border-gray-200 rounded-lg p-6">
-                  <h3 className="font-semibold text-gray-800 mb-4">Patient: Jane Smith</h3>
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Heart Rate:</span>
-                      <span className="font-bold text-pink-600">68 bpm</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Blood Pressure:</span>
-                      <span className="font-bold text-blue-600">118/76 mmHg</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Temperature:</span>
-                      <span className="font-bold text-orange-600">98.4°F</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">SpO2:</span>
-                      <span className="font-bold text-green-600">99%</span>
-                    </div>
-                  </div>
-                </div>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-800 flex items-center">
+                  <FaHeartbeat className="text-red-500 mr-3 animate-pulse" />
+                  Live Patient Monitoring
+                </h2>
+                <button
+                  onClick={fetchLiveVitals}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                >
+                  Refresh
+                </button>
               </div>
+              {loading ? (
+                <div className="text-center py-8 text-gray-500">Loading live vitals...</div>
+              ) : liveVitals.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">No patients currently being monitored</div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {liveVitals.map((vital, index) => {
+                    const patientName = `${vital.patientId?.userId?.profile?.firstName || 'Unknown'} ${vital.patientId?.userId?.profile?.lastName || 'Patient'}`;
+                    const timeAgo = getTimeAgo(new Date(vital.timestamp));
+                    const isRecent = (Date.now() - new Date(vital.timestamp)) < 5 * 60 * 1000; // Last 5 minutes
+                    
+                    return (
+                      <div key={index} className={`border-2 rounded-lg p-6 transition-all ${
+                        isRecent ? 'border-green-400 bg-green-50' : 'border-gray-200'
+                      }`}>
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="font-semibold text-gray-800">{patientName}</h3>
+                          <span className={`text-xs px-2 py-1 rounded ${
+                            isRecent ? 'bg-green-200 text-green-800' : 'bg-gray-200 text-gray-600'
+                          }`}>
+                            {isRecent ? '🟢 LIVE' : timeAgo}
+                          </span>
+                        </div>
+                        <div className="space-y-3">
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Heart Rate:</span>
+                            <span className={`font-bold ${
+                              vital.heartRate > 100 || vital.heartRate < 60 ? 'text-red-600' : 'text-pink-600'
+                            }`}>
+                              {vital.heartRate} bpm
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Blood Pressure:</span>
+                            <span className={`font-bold ${
+                              vital.systolic > 140 || vital.diastolic > 90 ? 'text-red-600' : 'text-blue-600'
+                            }`}>
+                              {vital.systolic}/{vital.diastolic} mmHg
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Temperature:</span>
+                            <span className={`font-bold ${
+                              vital.temperature > 100 || vital.temperature < 97 ? 'text-red-600' : 'text-orange-600'
+                            }`}>
+                              {vital.temperature}°F
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">SpO2:</span>
+                            <span className={`font-bold ${
+                              vital.spo2 < 95 ? 'text-red-600' : 'text-green-600'
+                            }`}>
+                              {vital.spo2}%
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         );
