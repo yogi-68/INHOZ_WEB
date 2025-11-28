@@ -1,11 +1,17 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Backend API URL - update this to your backend server
-const API_URL = 'http://localhost:3001/api/v1';
-// For Android emulator use: http://10.0.2.2:3001/api/v1
-// For iOS simulator use: http://localhost:3001/api/v1
-// For physical device use: http://YOUR_COMPUTER_IP:3001/api/v1
+// Backend API URL - Using Render production backend
+const API_URL = 'https://inhoz-backend.onrender.com/api/v1';
+
+// For local development, use:
+// const API_URL = 'http://localhost:3001/api/v1';
+
+// For Android emulator with local backend:
+// const API_URL = 'http://10.0.2.2:3001/api/v1';
+
+// For physical device with local backend:
+// const API_URL = 'http://192.168.1.7:3001/api/v1';
 
 class ApiClient {
   constructor() {

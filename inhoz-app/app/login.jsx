@@ -62,10 +62,10 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const response = await apiClient.post('/auth/login', { email, password });
+      const response = await apiClient.login(email, password);
 
-      if (response.data.success) {
-        const { accessToken, refreshToken, user } = response.data.data;
+      if (response.success) {
+        const { user } = response.data;
 
         // Verify role matches
         if (user.role !== selectedRole) {
