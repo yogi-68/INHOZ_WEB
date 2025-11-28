@@ -1,5 +1,5 @@
-import React from 'react';
-import { StyleSheet, View, Text, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, View, Text, ScrollView, Dimensions, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LineChart } from 'react-native-chart-kit';
 import { Card } from 'react-native-elements';
@@ -7,26 +7,67 @@ import Icon from 'react-native-vector-icons/FontAwesome';
 import { router } from 'expo-router';
 import BottomNav from './Components/BottomNav';
 import DrawerNav from './Components/DrawerNav';
+import apiClient from './utils/api';
 
 const windowWidth = Dimensions.get('window').width;
 const windowHeight = Dimensions.get('window').height;
 
 const History = () => {
-  // Mock data for the past 28 days
-  const generateMockData = (min, max, count = 14) => { // Reduced to 14 days for better visibility
-    return Array.from({ length: count }, () => 
-      Number((Math.random() * (max - min) + min).toFixed(1))
-    );
-  };
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState({
+    temperature: [],
+    heartRate: [],
+    bloodPressure: [],
+    oxygenSaturation: []
+  });
+  const [labels, setLabels] = useState([]);
 
-  const data = {
-    temperature: generateMockData(36.0, 37.5),
-    heartRate: generateMockData(60, 100),
-    bloodPressure: generateMockData(90, 140),
-    oxygenSaturation: generateMockData(95, 100)
-  };
+  useEffect(() => {
+    fetchVitalsHistory();
+  }, []);
 
-  const labels = Array.from({ length: 14 }, (_, i) => `${14 - i}`); // Show just the day number
+  const fetchVitalsHistory = async () => {
+    try {
+      setLoading(true);
+      const response = await apiClient.getPatientOwnVitals();
+      const vitalsData = response?.data || [];
+
+      // Get last 14 days of data
+      const last14Days = vitalsData.slice(0, 14).reverse();
+      
+      if (last14Days.length > 0) {
+        setData({
+          temperature: last14Days.map(v => v.temperature || 36.5),
+          heartRate: last14Days.map(v => v.heartRate || 75),
+          bloodPressure: last14Days.map(v => v.bloodPressureSystolic || 120),
+          oxygenSaturation: last14Days.map(v => v.oxygenLevel || 98),
+        });
+
+        setLabels(last14Days.map((v, i) => `${14 - i}`));
+      } else {
+        // Fallback to sample data if no vitals available
+        const sampleData = Array.from({ length: 14 }, (_, i) => ({
+          temperature: 36.5 + Math.random() * 1,
+          heartRate: 70 + Math.random() * 30,
+          bloodPressure: 110 + Math.random() * 30,
+          oxygenSaturation: 95 + Math.random() * 5,
+        }));
+
+        setData({
+          temperature: sampleData.map(d => Number(d.temperature.toFixed(1))),
+          heartRate: sampleData.map(d => Math.round(d.heartRate)),
+          bloodPressure: sampleData.map(d => Math.round(d.bloodPressure)),
+          oxygenSaturation: sampleData.map(d => Math.round(d.oxygenSaturation)),
+        });
+
+        setLabels(Array.from({ length: 14 }, (_, i) => `${14 - i}`));
+      }
+    } catch (error) {
+      console.error('Error fetching vitals history:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const chartConfig = {
     backgroundColor: '#ffffff',
@@ -81,6 +122,19 @@ const History = () => {
       />
     </Card>
   );
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <DrawerNav />
+        <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+          <ActivityIndicator size="large" color="#4a90e2" />
+          <Text style={{ marginTop: 16, color: '#64748b' }}>Loading history...</Text>
+        </View>
+        <BottomNav />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
