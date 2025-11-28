@@ -32,10 +32,16 @@ const AdminLogin = () => {
 
         localStorage.setItem('isAuthenticated', 'true');
         localStorage.setItem('userRole', role);
-        initializeSocket(response.data.accessToken);
         
         console.log('✅ Admin login successful!');
-        navigate('/admin');
+        console.log('📦 LocalStorage state:', {
+          isAuthenticated: localStorage.getItem('isAuthenticated'),
+          userRole: localStorage.getItem('userRole'),
+          hasToken: !!localStorage.getItem('accessToken')
+        });
+        
+        initializeSocket(response.data.accessToken);
+        navigate('/admin', { replace: true });
       } else {
         setError(response.error || 'Invalid credentials');
       }

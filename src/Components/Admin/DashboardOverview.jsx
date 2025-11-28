@@ -32,7 +32,7 @@ ChartJS.register(
   Filler
 );
 
-const DashboardOverview = () => {
+const DashboardOverview = ({ onNavigate }) => {
   const [stats, setStats] = useState({
     totalPatients: 245,
     totalDoctors: 48,
@@ -324,19 +324,31 @@ const DashboardOverview = () => {
       <div className="bg-white rounded-xl shadow-lg p-6">
         <h3 className="text-xl font-bold text-gray-800 mb-4">Quick Actions</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <button className="flex flex-col items-center justify-center p-6 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all transform hover:scale-105 shadow-lg">
+          <button 
+            onClick={() => onNavigate?.('patients')}
+            className="flex flex-col items-center justify-center p-6 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all transform hover:scale-105 shadow-lg"
+          >
             <FaUserInjured className="text-3xl mb-2" />
             <span className="font-semibold">Add Patient</span>
           </button>
-          <button className="flex flex-col items-center justify-center p-6 bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all transform hover:scale-105 shadow-lg">
+          <button 
+            onClick={() => onNavigate?.('doctors')}
+            className="flex flex-col items-center justify-center p-6 bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all transform hover:scale-105 shadow-lg"
+          >
             <FaUserMd className="text-3xl mb-2" />
             <span className="font-semibold">Add Doctor</span>
           </button>
-          <button className="flex flex-col items-center justify-center p-6 bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-lg hover:from-purple-600 hover:to-purple-700 transition-all transform hover:scale-105 shadow-lg">
+          <button 
+            onClick={() => onNavigate?.('devices')}
+            className="flex flex-col items-center justify-center p-6 bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-lg hover:from-purple-600 hover:to-purple-700 transition-all transform hover:scale-105 shadow-lg"
+          >
             <FaHospital className="text-3xl mb-2" />
             <span className="font-semibold">Add Device</span>
           </button>
-          <button className="flex flex-col items-center justify-center p-6 bg-gradient-to-br from-yellow-500 to-yellow-600 text-white rounded-lg hover:from-yellow-600 hover:to-yellow-700 transition-all transform hover:scale-105 shadow-lg">
+          <button 
+            onClick={() => onNavigate?.('billing')}
+            className="flex flex-col items-center justify-center p-6 bg-gradient-to-br from-yellow-500 to-yellow-600 text-white rounded-lg hover:from-yellow-600 hover:to-yellow-700 transition-all transform hover:scale-105 shadow-lg"
+          >
             <FaMoneyBillWave className="text-3xl mb-2" />
             <span className="font-semibold">Create Bill</span>
           </button>

@@ -42,7 +42,7 @@ const AdminDashboard = () => {
   const renderContent = () => {
     switch (activeTab) {
       case 'overview':
-        return <DashboardOverview />;
+        return <DashboardOverview onNavigate={setActiveTab} />;
       case 'doctors':
         return <ManageDoctors />;
       case 'patients':

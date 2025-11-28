@@ -21,8 +21,12 @@ const PatientLogin = () => {
     try {
       const response = await apiClient.login(formData.username, formData.password);
       
+      console.log('🔐 Login response:', response);
+      
       if (response.success && response.data) {
         const role = response.data.user.role;
+        
+        console.log('👤 User role:', role);
         
         if (role !== 'patient') {
           setError('Access denied. This portal is for patients only.');
@@ -30,17 +34,28 @@ const PatientLogin = () => {
           return;
         }
 
-        localStorage.setItem('isAuthenticated', 'true');
+        // API client already sets: accessToken, refreshToken, user, isAuthenticated
+        // We just need to set userRole for the ProtectedRoute
         localStorage.setItem('userRole', role);
+        
+        console.log('✅ Patient login successful! Navigating to /patient');
+        console.log('📦 LocalStorage state:', {
+          isAuthenticated: localStorage.getItem('isAuthenticated'),
+          userRole: localStorage.getItem('userRole'),
+          hasToken: !!localStorage.getItem('accessToken'),
+          hasUser: !!localStorage.getItem('user')
+        });
+        
+        // Initialize socket with the access token
         initializeSocket(response.data.accessToken);
         
-        console.log('✅ Patient login successful!');
-        navigate('/patient');
+        // Navigate to patient dashboard
+        navigate('/patient', { replace: true });
       } else {
         setError(response.error || 'Invalid credentials');
       }
     } catch (err) {
-      console.error('Login error:', err);
+      console.error('❌ Login error:', err);
       setError(err.message || 'Login failed. Please try again.');
     } finally {
       setLoading(false);

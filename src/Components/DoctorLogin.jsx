@@ -35,11 +35,16 @@ const DoctorLogin = () => {
 
         localStorage.setItem('isAuthenticated', 'true');
         localStorage.setItem('userRole', role);
-        localStorage.setItem('token', response.data.accessToken);
-        initializeSocket(response.data.accessToken);
         
         console.log('✅ Doctor login successful!');
-        navigate('/doctor');
+        console.log('📦 LocalStorage state:', {
+          isAuthenticated: localStorage.getItem('isAuthenticated'),
+          userRole: localStorage.getItem('userRole'),
+          hasToken: !!localStorage.getItem('accessToken')
+        });
+        
+        initializeSocket(response.data.accessToken);
+        navigate('/doctor', { replace: true });
       } else {
         setError(response.error || 'Invalid credentials');
       }
