@@ -232,12 +232,19 @@ const DashboardOverview = () => {
                   tooltip: { mode: 'index', intersect: false }
                 },
                 scales: {
-                y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
-                x: { grid: { display: false } }
-              }
-            }}
-            height={250}
-          />
+                  y: { 
+                    beginAtZero: true, 
+                    grid: { color: 'rgba(0,0,0,0.05)' },
+                    suggestedMax: Math.max(...admissionData.datasets[0].data, ...admissionData.datasets[1].data) * 1.2,
+                    ticks: {
+                      stepSize: Math.ceil(Math.max(...admissionData.datasets[0].data, ...admissionData.datasets[1].data) / 5)
+                    }
+                  },
+                  x: { grid: { display: false } }
+                }
+              }}
+            />
+          </div>
         </div>
 
         {/* Alerts Distribution */}
@@ -246,17 +253,18 @@ const DashboardOverview = () => {
             <FaExclamationTriangle className="mr-2 text-red-600" />
             Alerts Distribution
           </h3>
-          <Doughnut
-            data={alertsData}
-            options={{
-              responsive: true,
-              maintainAspectRatio: false,
-              plugins: {
-                legend: { position: 'bottom' }
-              }
-            }}
-            height={250}
-          />
+          <div style={{ height: '280px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Doughnut
+              data={alertsData}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: { position: 'bottom', labels: { font: { size: 11 } } }
+                }
+              }}
+            />
+          </div>
         </div>
       </div>
 
@@ -268,21 +276,29 @@ const DashboardOverview = () => {
             <FaHospital className="mr-2 text-blue-600" />
             Patients by Department
           </h3>
-          <Bar
-            data={departmentData}
-            options={{
-              responsive: true,
-              maintainAspectRatio: false,
-              plugins: {
-                legend: { display: false }
-              },
-              scales: {
-                y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
-                x: { grid: { display: false } }
-              }
-            }}
-            height={300}
-          />
+          <div style={{ height: '320px', width: '100%' }}>
+            <Bar
+              data={departmentData}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: { display: false }
+                },
+                scales: {
+                  y: { 
+                    beginAtZero: true, 
+                    grid: { color: 'rgba(0,0,0,0.05)' },
+                    suggestedMax: Math.max(...departmentData.datasets[0].data) * 1.2,
+                    ticks: {
+                      stepSize: Math.ceil(Math.max(...departmentData.datasets[0].data) / 5)
+                    }
+                  },
+                  x: { grid: { display: false } }
+                }
+              }}
+            />
+          </div>
         </div>
 
         {/* Recent Alerts */}
