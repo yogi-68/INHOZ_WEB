@@ -258,9 +258,35 @@ const AdminDashboard = () => {
       })));
       setAllAlerts(alertsData || []);
 
-      // Fetch invoices
+      // Fetch invoices and calculate revenue
       const invoicesResponse = await apiClient.getInvoices();
-      setInvoices(invoicesResponse?.data || []);
+      const invoicesData = invoicesResponse?.data || [];
+      setInvoices(invoicesData);
+
+      // Calculate revenue
+      let revenueToday = 0;
+      let revenueMonth = 0;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      
+      invoicesData.forEach(invoice => {
+        const invoiceDate = new Date(invoice.issuedAt);
+        if (invoice.status === 'paid') {
+          if (invoiceDate >= today) {
+            revenueToday += invoice.total;
+          }
+          if (invoiceDate >= firstDayOfMonth) {
+            revenueMonth += invoice.total;
+          }
+        }
+      });
+
+      setStats(prev => ({
+        ...prev,
+        revenueToday,
+        revenueMonth
+      }));
 
       // Fetch audit logs
       const logsResponse = await apiClient.getAuditLogs({ limit: 50 });
@@ -434,16 +460,16 @@ const AdminDashboard = () => {
               />
               <KPICard
                 icon="dollar"
-                title="Revenue (Today)"
-                value={`$${stats.revenueToday.toLocaleString()}`}
-                subtitle="Daily earnings"
+                title="Today's Revenue"
+                value={`$${Math.round(stats.revenueToday).toLocaleString()}`}
+                subtitle="From paid invoices"
                 gradient={['#f59e0b', '#d97706']}
               />
               <KPICard
                 icon="line-chart"
-                title="Revenue (Month)"
-                value={`$${stats.revenueMonth.toLocaleString()}`}
-                subtitle="Monthly total"
+                title="Monthly Revenue"
+                value={`$${Math.round(stats.revenueMonth).toLocaleString()}`}
+                subtitle={`Target: $1.5M (${Math.round((stats.revenueMonth / 1500000) * 100)}%)`}
                 gradient={['#6366f1', '#4f46e5']}
               />
               <KPICard
