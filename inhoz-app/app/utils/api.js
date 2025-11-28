@@ -129,8 +129,13 @@ class ApiClient {
     return response.data;
   }
 
+  async createPatient(patientData) {
+    const response = await this.client.post('/admin/patients', patientData);
+    return response.data;
+  }
+
   async assignDoctor(assignmentData) {
-    const response = await this.client.post('/admin/patients/assign-doctor', assignmentData);
+    const response = await this.client.post('/admin/assignments', assignmentData);
     return response.data;
   }
 

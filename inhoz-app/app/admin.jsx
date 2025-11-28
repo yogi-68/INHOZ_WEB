@@ -417,21 +417,33 @@ const AdminDashboard = () => {
               <View style={styles.actionGrid}>
                 <TouchableOpacity 
                   style={styles.actionButton}
-                  onPress={() => Alert.alert('Add Doctor', 'Doctor registration form coming soon')}
+                  onPress={() => Alert.alert(
+                    'Add Doctor', 
+                    'Full doctor registration available on web portal.\n\nWeb: https://inhoz-web.vercel.app/admin',
+                    [{ text: 'OK' }]
+                  )}
                 >
                   <Icon name="user-plus" size={24} color="#4a90e2" />
                   <Text style={styles.actionText}>Add Doctor</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
                   style={styles.actionButton}
-                  onPress={() => Alert.alert('Add Patient', 'Patient admission form coming soon')}
+                  onPress={() => Alert.alert(
+                    'Admit Patient', 
+                    'Full patient admission available on web portal.\n\nWeb: https://inhoz-web.vercel.app/admin',
+                    [{ text: 'OK' }]
+                  )}
                 >
                   <Icon name="user-plus" size={24} color="#4a90e2" />
                   <Text style={styles.actionText}>Add Patient</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
                   style={styles.actionButton}
-                  onPress={() => Alert.alert('Reports', 'Analytics and reports coming soon')}
+                  onPress={() => Alert.alert(
+                    'Reports', 
+                    'Advanced analytics and reports available on web portal.\n\nWeb: https://inhoz-web.vercel.app/admin',
+                    [{ text: 'OK' }]
+                  )}
                 >
                   <Icon name="file-text" size={24} color="#4a90e2" />
                   <Text style={styles.actionText}>Reports</Text>
