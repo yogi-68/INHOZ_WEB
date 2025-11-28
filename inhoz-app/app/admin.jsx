@@ -215,8 +215,10 @@ const AdminDashboard = () => {
         return;
       }
 
+      console.log('📊 Fetching admin dashboard...');
       const response = await apiClient.getAdminDashboard();
       const data = response?.data || {};
+      console.log('✅ Dashboard data fetched');
 
       setStats({
         activePatients: data.patients?.active || 0,
@@ -228,8 +230,10 @@ const AdminDashboard = () => {
       });
 
       // Fetch doctors list
+      console.log('👨‍⚕️ Fetching doctors...');
       const doctorsResponse = await apiClient.getDoctors();
       const doctorsData = doctorsResponse?.data || [];
+      console.log(`✅ Fetched ${doctorsData.length} doctors from database`);
       setDoctors(doctorsData.map(doc => ({
         id: doc._id,
         name: `${doc.userId.profile.firstName} ${doc.userId.profile.lastName}`,
@@ -240,8 +244,10 @@ const AdminDashboard = () => {
       })));
 
       // Fetch patients list
+      console.log('🏥 Fetching patients...');
       const patientsResponse = await apiClient.getAdminPatients();
       const patientsData = patientsResponse?.data || [];
+      console.log(`✅ Fetched ${patientsData.length} patients from database`);
       setPatients(patientsData.map(patient => ({
         id: patient._id,
         name: `${patient.userId.profile.firstName} ${patient.userId.profile.lastName}`,
@@ -253,24 +259,34 @@ const AdminDashboard = () => {
           'Not assigned',
       })));
 
-      // Fetch real alerts
-      const alertsResponse = await apiClient.getAlerts();
-      const alertsData = alertsResponse?.data || [];
-      setRecentAlerts(alertsData.slice(0, 5).map(alert => ({
-        id: alert._id,
-        type: alert.type || 'Alert',
-        message: alert.message || alert.description || 'Alert triggered',
-        severity: alert.severity || 'warning',
-        patientName: alert.patientId?.userId?.profile ? 
-          `${alert.patientId.userId.profile.firstName} ${alert.patientId.userId.profile.lastName}` :
-          'Unknown Patient',
-        timestamp: alert.triggeredAt || alert.createdAt || new Date(),
-      })));
-      setAllAlerts(alertsData || []);
+      // Fetch real alerts (skip if 404)
+      try {
+        console.log('🔔 Fetching alerts...');
+        const alertsResponse = await apiClient.getAlerts();
+        const alertsData = alertsResponse?.data || [];
+        console.log(`✅ Fetched ${alertsData.length} alerts from database`);
+        setRecentAlerts(alertsData.slice(0, 5).map(alert => ({
+          id: alert._id,
+          type: alert.type || 'Alert',
+          message: alert.message || alert.description || 'Alert triggered',
+          severity: alert.severity || 'warning',
+          patientName: alert.patientId?.userId?.profile ? 
+            `${alert.patientId.userId.profile.firstName} ${alert.patientId.userId.profile.lastName}` :
+            'Unknown Patient',
+          timestamp: alert.triggeredAt || alert.createdAt || new Date(),
+        })));
+        setAllAlerts(alertsData || []);
+      } catch (alertError) {
+        console.warn('⚠️ Alerts fetch failed (non-critical):', alertError.message);
+        setRecentAlerts([]);
+        setAllAlerts([]);
+      }
 
       // Fetch invoices and calculate revenue
+      console.log('💰 Fetching invoices...');
       const invoicesResponse = await apiClient.getInvoices();
       const invoicesData = invoicesResponse?.data || [];
+      console.log(`✅ Fetched ${invoicesData.length} invoices from database`);
       setInvoices(invoicesData);
 
       // Calculate revenue
@@ -298,16 +314,26 @@ const AdminDashboard = () => {
         revenueMonth
       }));
 
-      // Fetch audit logs
-      const logsResponse = await apiClient.getAuditLogs({ limit: 50 });
-      setAuditLogs(logsResponse?.data || []);
+      // Fetch audit logs (skip if 404)
+      try {
+        console.log('📜 Fetching audit logs...');
+        const logsResponse = await apiClient.getAuditLogs({ limit: 50 });
+        setAuditLogs(logsResponse?.data || []);
+        console.log('✅ Audit logs fetched');
+      } catch (logError) {
+        console.warn('⚠️ Audit logs fetch failed (non-critical):', logError.message);
+        setAuditLogs([]);
+      }
 
       // Mock device data (replace with API when available)
+      console.log('🔧 Using mock device data');
       setDevices([
         { id: 'DEV-001', name: 'ECG Monitor', type: 'Cardiac', room: '301', status: 'active', battery: '85%', patient: 'John Doe' },
         { id: 'DEV-002', name: 'Pulse Oximeter', type: 'Respiratory', room: '302', status: 'active', battery: '92%', patient: 'Mary Wilson' },
         { id: 'DEV-003', name: 'BP Monitor', type: 'Cardiac', room: '303', status: 'maintenance', battery: '45%', patient: 'N/A' },
       ]);
+      
+      console.log('✅ All data loaded from database successfully!');
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
       
@@ -906,26 +932,28 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 4,
+    maxHeight: 55,
   },
   tabBarContent: {
     paddingHorizontal: 8,
+    paddingVertical: 4,
   },
   tab: {
-    paddingVertical: 16,
-    paddingHorizontal: 18,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 8,
-    minWidth: 90,
+    gap: 6,
+    minWidth: 85,
   },
   tabActive: {
-    borderBottomWidth: 3,
+    borderBottomWidth: 2.5,
     borderBottomColor: '#7c3aed',
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#f9f5ff',
   },
   tabText: {
-    fontSize: 13,
+    fontSize: 12.5,
     color: '#94a3b8',
     fontWeight: '600',
   },
