@@ -107,7 +107,7 @@ const LoginForm = () => {
             <p className="font-semibold mb-2">Test Credentials:</p>
             <p>Admin: admin@inhoz.com / admin123</p>
             <p>Doctor: dr.smith@inhoz.com / doctor123</p>
-            <p>Patient: john.doe@inhoz.com / patient123</p>
+            <p>Patient: patient1@example.com / patient123</p>
           </div>
         </form>
       </div>

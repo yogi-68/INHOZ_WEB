@@ -110,7 +110,7 @@ const PatientLogin = () => {
                   value={formData.username}
                   onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                   className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-teal-500 transition-colors"
-                  placeholder="john.doe@inhoz.com"
+                  placeholder="patient1@example.com"
                   required
                 />
               </div>
@@ -153,7 +153,7 @@ const PatientLogin = () => {
             {/* Test Credentials */}
             <div className="mt-6 p-4 bg-teal-50 rounded-lg border border-teal-200">
               <p className="text-sm font-semibold text-teal-800 mb-2">🔑 Test Credentials:</p>
-              <p className="text-sm text-teal-700">Email: <span className="font-mono">john.doe@inhoz.com</span></p>
+              <p className="text-sm text-teal-700">Email: <span className="font-mono">patient1@example.com</span></p>
               <p className="text-sm text-teal-700">Password: <span className="font-mono">patient123</span></p>
             </div>
 
