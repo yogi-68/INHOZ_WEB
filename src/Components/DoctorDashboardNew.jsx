@@ -492,9 +492,9 @@ const DoctorDashboardNew = () => {
               >
                 <Icon className="text-xl" />
                 <span className="font-semibold">{tab.name}</span>
-                {tab.id === 'alerts' && notifications > 0 && (
+                {tab.id === 'alerts' && alerts.length > 0 && (
                   <span className="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-                    {notifications}
+                    {alerts.length}
                   </span>
                 )}
               </button>
@@ -539,9 +539,9 @@ const DoctorDashboardNew = () => {
           <div className="flex items-center space-x-4">
             <button className="relative p-3 hover:bg-gray-100 rounded-lg transition-colors">
               <FaBell className="text-2xl text-gray-600" />
-              {notifications > 0 && (
+              {alerts.length > 0 && (
                 <span className="absolute top-1 right-1 bg-red-500 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full">
-                  {notifications}
+                  {alerts.length}
                 </span>
               )}
             </button>
