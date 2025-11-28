@@ -64,6 +64,68 @@ const AlertItem = ({ alert }) => (
   </View>
 );
 
+// Doctor Card Component
+const DoctorCard = ({ doctor }) => (
+  <View style={styles.doctorCard}>
+    <View style={styles.doctorHeader}>
+      <View style={styles.doctorAvatar}>
+        <Icon name="user-md" size={28} color="#7c3aed" />
+      </View>
+      <View style={styles.doctorInfo}>
+        <Text style={styles.doctorName}>{doctor.name}</Text>
+        <Text style={styles.doctorSpecialization}>{doctor.specialization}</Text>
+      </View>
+    </View>
+    <View style={styles.doctorDetails}>
+      <View style={styles.doctorDetailRow}>
+        <Icon name="envelope" size={14} color="#64748b" />
+        <Text style={styles.doctorDetailText}>{doctor.email}</Text>
+      </View>
+      <View style={styles.doctorDetailRow}>
+        <Icon name="phone" size={14} color="#64748b" />
+        <Text style={styles.doctorDetailText}>{doctor.phone}</Text>
+      </View>
+      <View style={styles.doctorDetailRow}>
+        <Icon name="users" size={14} color="#64748b" />
+        <Text style={styles.doctorDetailText}>{doctor.patientCount} patients</Text>
+      </View>
+    </View>
+  </View>
+);
+
+// Patient Card Component
+const PatientCard = ({ patient }) => (
+  <View style={styles.patientCard}>
+    <View style={styles.patientHeader}>
+      <View style={styles.patientAvatar}>
+        <Icon name="user" size={28} color="#3b82f6" />
+      </View>
+      <View style={styles.patientInfo}>
+        <Text style={styles.patientName}>{patient.name}</Text>
+        <Text style={styles.patientId}>ID: {patient.hospitalId}</Text>
+      </View>
+      <View style={[
+        styles.statusBadge,
+        patient.status === 'admitted' ? styles.statusAdmitted :
+        patient.status === 'discharged' ? styles.statusDischarged :
+        styles.statusTransferred
+      ]}>
+        <Text style={styles.statusText}>{patient.status}</Text>
+      </View>
+    </View>
+    <View style={styles.patientDetails}>
+      <View style={styles.patientDetailRow}>
+        <Icon name="bed" size={14} color="#64748b" />
+        <Text style={styles.patientDetailText}>Room: {patient.room}</Text>
+      </View>
+      <View style={styles.patientDetailRow}>
+        <Icon name="user-md" size={14} color="#64748b" />
+        <Text style={styles.patientDetailText}>{patient.doctorName}</Text>
+      </View>
+    </View>
+  </View>
+);
+
 const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -77,6 +139,8 @@ const AdminDashboard = () => {
   });
   const [recentAlerts, setRecentAlerts] = useState([]);
   const [activeTab, setActiveTab] = useState('overview');
+  const [doctors, setDoctors] = useState([]);
+  const [patients, setPatients] = useState([]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -98,10 +162,27 @@ const AdminDashboard = () => {
               type: alert.type,
               message: alert.message,
               severity: alert.severity,
-              patientName: 'Patient',
+              patientName: alert.patientId?.userId?.profile ? 
+                `${alert.patientId.userId.profile.firstName} ${alert.patientId.userId.profile.lastName}` :
+                'Patient',
               timestamp: alert.createdAt,
             }, ...prev.slice(0, 4)]);
           }
+        });
+
+        socket.on('patient:new', () => {
+          // Refresh patient list when new patient is added
+          fetchDashboardData();
+        });
+
+        socket.on('doctor:new', () => {
+          // Refresh doctor list when new doctor is added
+          fetchDashboardData();
+        });
+
+        socket.on('patient:updated', () => {
+          // Refresh when patient is updated (e.g., doctor assigned)
+          fetchDashboardData();
         });
 
         socket.on('device:offline', () => {
@@ -124,25 +205,53 @@ const AdminDashboard = () => {
       const data = response?.data || {};
 
       setStats({
-        activePatients: data.activePatients || 0,
-        criticalAlerts: data.criticalAlerts || 0,
-        doctorsOnDuty: data.totalDoctors || 0,
-        revenueToday: data.revenueToday || 0,
-        revenueMonth: data.totalRevenue || 0,
-        devicesOffline: data.devicesOffline || 0,
+        activePatients: data.patients?.active || 0,
+        criticalAlerts: data.alerts?.unacknowledged || 0,
+        doctorsOnDuty: data.doctors?.active || 0,
+        revenueToday: 0,
+        revenueMonth: 0,
+        devicesOffline: 0,
       });
 
-      // Mock recent alerts (replace with actual API call when available)
-      setRecentAlerts([
-        {
-          id: '1',
-          type: 'High Heart Rate',
-          message: 'Heart rate elevated to 145 bpm',
-          severity: 'critical',
-          patientName: 'John Doe',
-          timestamp: new Date(),
-        },
-      ]);
+      // Fetch doctors list
+      const doctorsResponse = await apiClient.getDoctors();
+      const doctorsData = doctorsResponse?.data || [];
+      setDoctors(doctorsData.map(doc => ({
+        id: doc._id,
+        name: `${doc.userId.profile.firstName} ${doc.userId.profile.lastName}`,
+        email: doc.userId.email,
+        specialization: doc.specialization || 'General Medicine',
+        phone: doc.userId.profile.phone || 'N/A',
+        patientCount: doc.assignedPatients?.length || 0,
+      })));
+
+      // Fetch patients list
+      const patientsResponse = await apiClient.getAdminPatients();
+      const patientsData = patientsResponse?.data || [];
+      setPatients(patientsData.map(patient => ({
+        id: patient._id,
+        name: `${patient.userId.profile.firstName} ${patient.userId.profile.lastName}`,
+        hospitalId: patient.hospitalId || 'N/A',
+        room: patient.roomNo || 'N/A',
+        status: patient.status || 'admitted',
+        doctorName: patient.assignedDoctorId?.userId?.profile ? 
+          `${patient.assignedDoctorId.userId.profile.firstName} ${patient.assignedDoctorId.userId.profile.lastName}` : 
+          'Not assigned',
+      })));
+
+      // Fetch real alerts
+      const alertsResponse = await apiClient.getAlerts();
+      const alertsData = alertsResponse?.data || [];
+      setRecentAlerts(alertsData.slice(0, 5).map(alert => ({
+        id: alert._id,
+        type: alert.type || 'Alert',
+        message: alert.message || alert.description || 'Alert triggered',
+        severity: alert.severity || 'warning',
+        patientName: alert.patientId?.userId?.profile ? 
+          `${alert.patientId.userId.profile.firstName} ${alert.patientId.userId.profile.lastName}` :
+          'Unknown Patient',
+        timestamp: alert.triggeredAt || alert.createdAt || new Date(),
+      })));
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
       Alert.alert('Error', 'Failed to load dashboard data');
@@ -236,91 +345,146 @@ const AdminDashboard = () => {
           <RefreshControl refreshing={refreshing} onRefresh={fetchDashboardData} colors={['#7c3aed']} />
         }
       >
-        {/* KPI Cards with Gradients */}
-        <View style={styles.kpiGrid}>
-          <KPICard
-            icon="bed"
-            title="Active Patients"
-            value={stats.activePatients}
-            subtitle="Currently admitted"
-            gradient={['#8b5cf6', '#7c3aed']}
-          />
-          <KPICard
-            icon="exclamation-triangle"
-            title="Critical Alerts"
-            value={stats.criticalAlerts}
-            subtitle="Requires attention"
-            gradient={['#ef4444', '#dc2626']}
-          />
-          <KPICard
-            icon="user-md"
-            title="Doctors On Duty"
-            value={stats.doctorsOnDuty}
-            subtitle="Active now"
-            gradient={['#10b981', '#059669']}
-          />
-          <KPICard
-            icon="dollar"
-            title="Revenue (Today)"
-            value={`$${stats.revenueToday.toLocaleString()}`}
-            subtitle="Daily earnings"
-            gradient={['#f59e0b', '#d97706']}
-          />
-          <KPICard
-            icon="line-chart"
-            title="Revenue (Month)"
-            value={`$${stats.revenueMonth.toLocaleString()}`}
-            subtitle="Monthly total"
-            gradient={['#6366f1', '#4f46e5']}
-          />
-          <KPICard
-            icon="server"
-            title="Devices Status"
-            value={stats.devicesOffline}
-            subtitle={stats.devicesOffline > 0 ? 'Offline' : 'All online'}
-            gradient={stats.devicesOffline > 0 ? ['#ef4444', '#dc2626'] : ['#10b981', '#059669']}
-          />
-        </View>
-
-        {/* Recent Alerts */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            <Icon name="bell" size={18} color="#ef4444" /> Recent Critical Alerts
-          </Text>
-          {recentAlerts.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Icon name="check-circle" size={48} color="#10b981" />
-              <Text style={styles.emptyText}>No critical alerts</Text>
+        {/* Overview Tab */}
+        {activeTab === 'overview' && (
+          <>
+            {/* KPI Cards with Gradients */}
+            <View style={styles.kpiGrid}>
+              <KPICard
+                icon="bed"
+                title="Active Patients"
+                value={stats.activePatients}
+                subtitle="Currently admitted"
+                gradient={['#8b5cf6', '#7c3aed']}
+              />
+              <KPICard
+                icon="exclamation-triangle"
+                title="Critical Alerts"
+                value={stats.criticalAlerts}
+                subtitle="Requires attention"
+                gradient={['#ef4444', '#dc2626']}
+              />
+              <KPICard
+                icon="user-md"
+                title="Doctors On Duty"
+                value={stats.doctorsOnDuty}
+                subtitle="Active now"
+                gradient={['#10b981', '#059669']}
+              />
+              <KPICard
+                icon="dollar"
+                title="Revenue (Today)"
+                value={`$${stats.revenueToday.toLocaleString()}`}
+                subtitle="Daily earnings"
+                gradient={['#f59e0b', '#d97706']}
+              />
+              <KPICard
+                icon="line-chart"
+                title="Revenue (Month)"
+                value={`$${stats.revenueMonth.toLocaleString()}`}
+                subtitle="Monthly total"
+                gradient={['#6366f1', '#4f46e5']}
+              />
+              <KPICard
+                icon="server"
+                title="Devices Status"
+                value={stats.devicesOffline}
+                subtitle={stats.devicesOffline > 0 ? 'Offline' : 'All online'}
+                gradient={stats.devicesOffline > 0 ? ['#ef4444', '#dc2626'] : ['#10b981', '#059669']}
+              />
             </View>
-          ) : (
-            recentAlerts.map((alert) => (
-              <AlertItem key={alert.id} alert={alert} />
-            ))
-          )}
-        </View>
 
-        {/* Quick Actions */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.actionGrid}>
-            <TouchableOpacity style={styles.actionButton}>
-              <Icon name="user-plus" size={24} color="#4a90e2" />
-              <Text style={styles.actionText}>Add Doctor</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton}>
-              <Icon name="user-plus" size={24} color="#4a90e2" />
-              <Text style={styles.actionText}>Add Patient</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton}>
-              <Icon name="file-text" size={24} color="#4a90e2" />
-              <Text style={styles.actionText}>Reports</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton}>
-              <Icon name="cog" size={24} color="#4a90e2" />
-              <Text style={styles.actionText}>Settings</Text>
-            </TouchableOpacity>
+            {/* Recent Alerts */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>
+                <Icon name="bell" size={18} color="#ef4444" /> Recent Critical Alerts
+              </Text>
+              {recentAlerts.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Icon name="check-circle" size={48} color="#10b981" />
+                  <Text style={styles.emptyText}>No critical alerts</Text>
+                </View>
+              ) : (
+                recentAlerts.map((alert) => (
+                  <AlertItem key={alert.id} alert={alert} />
+                ))
+              )}
+            </View>
+
+            {/* Quick Actions */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Quick Actions</Text>
+              <View style={styles.actionGrid}>
+                <TouchableOpacity 
+                  style={styles.actionButton}
+                  onPress={() => Alert.alert('Add Doctor', 'Doctor registration form coming soon')}
+                >
+                  <Icon name="user-plus" size={24} color="#4a90e2" />
+                  <Text style={styles.actionText}>Add Doctor</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.actionButton}
+                  onPress={() => Alert.alert('Add Patient', 'Patient admission form coming soon')}
+                >
+                  <Icon name="user-plus" size={24} color="#4a90e2" />
+                  <Text style={styles.actionText}>Add Patient</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.actionButton}
+                  onPress={() => Alert.alert('Reports', 'Analytics and reports coming soon')}
+                >
+                  <Icon name="file-text" size={24} color="#4a90e2" />
+                  <Text style={styles.actionText}>Reports</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.actionButton}
+                  onPress={() => router.push('/settings')}
+                >
+                  <Icon name="cog" size={24} color="#4a90e2" />
+                  <Text style={styles.actionText}>Settings</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </>
+        )}
+
+        {/* Doctors Tab */}
+        {activeTab === 'doctors' && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              <Icon name="user-md" size={18} color="#10b981" /> All Doctors ({doctors.length})
+            </Text>
+            {doctors.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Icon name="user-md" size={48} color="#94a3b8" />
+                <Text style={styles.emptyText}>No doctors found</Text>
+              </View>
+            ) : (
+              doctors.map((doctor) => (
+                <DoctorCard key={doctor.id} doctor={doctor} />
+              ))
+            )}
           </View>
-        </View>
+        )}
+
+        {/* Patients Tab */}
+        {activeTab === 'patients' && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              <Icon name="users" size={18} color="#3b82f6" /> All Patients ({patients.length})
+            </Text>
+            {patients.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Icon name="users" size={48} color="#94a3b8" />
+                <Text style={styles.emptyText}>No patients found</Text>
+              </View>
+            ) : (
+              patients.map((patient) => (
+                <PatientCard key={patient.id} patient={patient} />
+              ))
+            )}
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -546,6 +710,134 @@ const styles = StyleSheet.create({
     color: '#1e293b',
     marginTop: 12,
     fontWeight: '700',
+  },
+  // Doctor Card Styles
+  doctorCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  doctorHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  doctorAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#f0fdf4',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  doctorInfo: {
+    flex: 1,
+  },
+  doctorName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1e293b',
+    marginBottom: 4,
+  },
+  doctorSpecialization: {
+    fontSize: 14,
+    color: '#10b981',
+    fontWeight: '600',
+  },
+  doctorDetails: {
+    gap: 8,
+  },
+  doctorDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  doctorDetailText: {
+    fontSize: 14,
+    color: '#64748b',
+  },
+  // Patient Card Styles
+  patientCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  patientHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  patientAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#eff6ff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  patientInfo: {
+    flex: 1,
+  },
+  patientName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1e293b',
+    marginBottom: 4,
+  },
+  patientId: {
+    fontSize: 13,
+    color: '#64748b',
+    fontWeight: '600',
+  },
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  statusAdmitted: {
+    backgroundColor: '#dcfce7',
+  },
+  statusDischarged: {
+    backgroundColor: '#f1f5f9',
+  },
+  statusTransferred: {
+    backgroundColor: '#fef3c7',
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+    color: '#1e293b',
+  },
+  patientDetails: {
+    gap: 8,
+  },
+  patientDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  patientDetailText: {
+    fontSize: 14,
+    color: '#64748b',
   },
 });
 
