@@ -2,6 +2,33 @@ import React, { useState, useEffect } from 'react';
 import { FaUserInjured, FaExclamationTriangle, FaHeartbeat, FaThermometerHalf, FaPrescriptionBottleAlt, FaChartLine, FaCheckCircle, FaTimes, FaPlus, FaSearch, FaVideo, FaBell, FaSort, FaClock, FaDownload } from 'react-icons/fa';
 import apiClient from '../utils/api';
 import { getSocket, initializeSocket } from '../utils/socket';
+
+// Matrix server API for live vitals
+const MATRIX_API_URL = 'https://matrix-server-4wi1.onrender.com';
+
+const fetchLiveVitals = async () => {
+  try {
+    const response = await fetch(MATRIX_API_URL);
+    const data = await response.json();
+    if (data.success && data.data && data.data.length > 0) {
+      const latest = data.data[0]; // Get the most recent reading
+      return {
+        heartRate: latest.BPM || 0,
+        oxygenLevel: latest.spO2 || 0,
+        temperature: latest.temperature || 0,
+        bloodPressureSystolic: latest.bloodPressure?.split('/')[0] || 0,
+        bloodPressureDiastolic: latest.bloodPressure?.split('/')[1] || 0,
+        ecgValue: latest.ecgValue || 0,
+        calories: latest.calories || 0,
+        timestamp: latest.timestamp || new Date().toISOString()
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error('Failed to fetch live vitals:', error);
+    return null;
+  }
+};
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 // Patient Card Component with Vitals Sparklines
@@ -615,10 +642,27 @@ const DoctorDashboard = () => {
         alert(`✅ Prescription issued successfully for ${data.patientName}!`);
       });
 
+      // Poll Matrix server for live vitals every 10 seconds - GLOBAL for all patients
+      const vitalsInterval = setInterval(async () => {
+        const liveVitals = await fetchLiveVitals();
+        if (liveVitals) {
+          console.log('🔄 Live vitals update from Matrix server (GLOBAL):', liveVitals);
+          // Apply same vitals to ALL patients globally
+          setPatients(prev => prev.map(p => ({
+            ...p,
+            latestVitals: {
+              ...liveVitals,
+              patientId: p.id
+            }
+          })));
+        }
+      }, 10000);
+
       return () => {
         socket.off('vitals:update');
         socket.off('alert:new');
         socket.off('prescription:created');
+        clearInterval(vitalsInterval);
       };
     } catch (err) {
       console.error('Socket.IO setup error:', err);
@@ -636,13 +680,17 @@ const DoctorDashboard = () => {
       const patientsResponse = await apiClient.getDoctorPatients();
       const patientsData = patientsResponse?.data || [];
       
+      // Fetch live vitals from Matrix server - GLOBAL for all patients
+      const liveVitals = await fetchLiveVitals();
+      
       const formattedPatients = patientsData.map(patient => ({
         id: patient._id,
         name: `${patient.userId.profile.firstName} ${patient.userId.profile.lastName}`,
         hospitalId: patient.hospitalId,
         room: patient.roomNo,
         status: patient.status,
-        latestVitals: patient.latestVitals || null,
+        // Apply live Matrix vitals globally to ALL patients
+        latestVitals: liveVitals ? { ...liveVitals, patientId: patient._id } : (patient.latestVitals || null),
         alertCount: patient.unacknowledgedAlerts || 0,
       }));
 

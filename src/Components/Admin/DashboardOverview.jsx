@@ -216,21 +216,22 @@ const DashboardOverview = () => {
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Admissions Trend */}
-        <div className="lg:col-span-2 bg-white rounded-xl shadow-lg p-6">
+        <div className="bg-white rounded-xl shadow-lg p-6">
           <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
             <FaChartLine className="mr-2 text-purple-600" />
             Patient Admissions & Discharges
           </h3>
-          <Line
-            data={admissionData}
-            options={{
-              responsive: true,
-              maintainAspectRatio: false,
-              plugins: {
-                legend: { position: 'top' },
-                tooltip: { mode: 'index', intersect: false }
-              },
-              scales: {
+          <div style={{ height: '280px', width: '100%' }}>
+            <Line
+              data={admissionData}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
+                  tooltip: { mode: 'index', intersect: false }
+                },
+                scales: {
                 y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
                 x: { grid: { display: false } }
               }
