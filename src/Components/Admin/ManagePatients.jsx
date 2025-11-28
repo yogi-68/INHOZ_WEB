@@ -48,8 +48,26 @@ const ManagePatients = () => {
   const handleAddPatient = async (e) => {
     e.preventDefault();
     try {
-      const response = await apiClient.createPatient(newPatient);
+      // Transform data to match backend expectations
+      const patientData = {
+        email: newPatient.email,
+        password: newPatient.password,
+        firstName: newPatient.firstName,
+        lastName: newPatient.lastName,
+        phone: newPatient.phone,
+        age: parseInt(newPatient.age),
+        gender: newPatient.gender,
+        roomNo: newPatient.roomNo,
+        emergencyContact: {
+          name: newPatient.emergencyContactName,
+          phone: newPatient.emergencyContactPhone,
+          relationship: 'Family'
+        }
+      };
+
+      const response = await apiClient.createPatient(patientData);
       if (response.success) {
+        alert('Patient added successfully!');
         await fetchData();
         setShowAddModal(false);
         setNewPatient({
@@ -64,10 +82,12 @@ const ManagePatients = () => {
           emergencyContactName: '',
           emergencyContactPhone: ''
         });
+      } else {
+        alert(response.error || 'Failed to add patient');
       }
     } catch (error) {
       console.error('Error adding patient:', error);
-      alert('Failed to add patient');
+      alert(error.message || 'Failed to add patient. Please try again.');
     }
   };
 
