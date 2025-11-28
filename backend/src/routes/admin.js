@@ -266,6 +266,55 @@ router.get('/patients', async (req, res) => {
 });
 
 /**
+ * POST /api/admin/patients
+ * Create new patient (admission)
+ */
+router.post('/patients', auditOperations.createPatient || ((req, res, next) => next()), async (req, res) => {
+  try {
+    const { email, password, firstName, lastName, phone, age, gender, bloodGroup, hospitalId, roomNo, emergencyContact } = req.body;
+
+    if (!email || !password || !firstName || !lastName) {
+      return res.status(400).json({ success: false, error: 'Missing required fields: email, password, firstName, lastName' });
+    }
+
+    const existingUser = await User.findOne({ email, deletedAt: null });
+    if (existingUser) {
+      return res.status(409).json({ success: false, error: 'Email already registered' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    const user = new User({
+      email,
+      passwordHash,
+      role: 'patient',
+      profile: { firstName, lastName, phone, age, gender },
+      isActive: true
+    });
+    await user.save();
+
+    const patient = new Patient({
+      userId: user._id,
+      hospitalId: hospitalId || `PAT-${Date.now()}`,
+      roomNo: roomNo || 'N/A',
+      bloodGroup: bloodGroup || 'Unknown',
+      emergencyContact: emergencyContact || {},
+      status: 'admitted'
+    });
+    await patient.save();
+
+    res.status(201).json({
+      success: true,
+      message: 'Patient admitted successfully',
+      data: { patientId: patient._id, userId: user._id, email: user.email, hospitalId: patient.hospitalId }
+    });
+  } catch (error) {
+    console.error('Create patient error:', error);
+    res.status(500).json({ success: false, error: 'Failed to admit patient' });
+  }
+});
+
+/**
  * POST /api/admin/assignments
  * Assign doctor to patient
  */
