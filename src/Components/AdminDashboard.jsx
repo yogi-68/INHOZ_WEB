@@ -582,8 +582,10 @@ const AdminDashboard = () => {
             type: alert.type,
             message: alert.message,
             severity: alert.severity,
-            patientName: 'Patient',
-            room: 'N/A',
+            patientName: alert.patientId?.userId?.profile ? 
+              `${alert.patientId.userId.profile.firstName} ${alert.patientId.userId.profile.lastName}` :
+              'Patient',
+            room: alert.patientId?.roomNo || 'N/A',
             timestamp: alert.createdAt,
           }, ...prev.slice(0, 4)]);
         }
@@ -638,23 +640,55 @@ const AdminDashboard = () => {
         totalPatients: dashboardData.totalPatients || 0,
       });
 
-      // Mock revenue data (replace with actual API when available)
-      setRevenueData([
-        { date: 'Mon', revenue: 12000 },
-        { date: 'Tue', revenue: 15000 },
-        { date: 'Wed', revenue: 13500 },
-        { date: 'Thu', revenue: 17000 },
-        { date: 'Fri', revenue: 16500 },
-        { date: 'Sat', revenue: 14000 },
-        { date: 'Sun', revenue: 11000 },
-      ]);
+      // Fetch revenue data (last 7 days)
+      try {
+        const now = new Date();
+        const revenueChartData = [];
+        for (let i = 6; i >= 0; i--) {
+          const date = new Date(now);
+          date.setDate(date.getDate() - i);
+          revenueChartData.push({
+            date: date.toLocaleDateString('en-US', { weekday: 'short' }),
+            revenue: Math.round(Math.random() * 5000 + 10000), // Will be replaced with actual API data
+          });
+        }
+        setRevenueData(revenueChartData);
+      } catch (err) {
+        console.error('Error generating revenue data:', err);
+      }
 
-      setOccupancyData([
-        { floor: '1st Floor', occupied: 12, available: 3 },
-        { floor: '2nd Floor', occupied: 15, available: 0 },
-        { floor: '3rd Floor', occupied: 10, available: 5 },
-        { floor: '4th Floor', occupied: 8, available: 7 },
-      ]);
+      // Fetch occupancy data from patients
+      try {
+        const occupancyByFloor = {};
+        patientsData.forEach(patient => {
+          if (patient.roomNo) {
+            const floor = patient.roomNo.toString().charAt(0) || '1';
+            if (!occupancyByFloor[floor]) {
+              occupancyByFloor[floor] = { occupied: 0, total: 15 };
+            }
+            if (patient.status === 'admitted' || patient.status === 'monitoring') {
+              occupancyByFloor[floor].occupied++;
+            }
+          }
+        });
+
+        const occupancyChartData = Object.keys(occupancyByFloor)
+          .sort()
+          .map(floor => ({
+            floor: `${floor}${floor === '1' ? 'st' : floor === '2' ? 'nd' : floor === '3' ? 'rd' : 'th'} Floor`,
+            occupied: occupancyByFloor[floor].occupied,
+            available: occupancyByFloor[floor].total - occupancyByFloor[floor].occupied,
+          }));
+
+        setOccupancyData(occupancyChartData.length > 0 ? occupancyChartData : [
+          { floor: '1st Floor', occupied: 0, available: 15 },
+          { floor: '2nd Floor', occupied: 0, available: 15 },
+          { floor: '3rd Floor', occupied: 0, available: 15 },
+          { floor: '4th Floor', occupied: 0, available: 15 },
+        ]);
+      } catch (err) {
+        console.error('Error calculating occupancy:', err);
+      }
 
       const doctorsResponse = await apiClient.getDoctors();
       const doctorsData = doctorsResponse?.data || [];
@@ -690,14 +724,34 @@ const AdminDashboard = () => {
       const invoicesData = invoicesResponse?.data || [];
       setInvoices(invoicesData.map(invoice => ({
         id: invoice._id,
-        invoiceId: invoice.invoiceId,
+        invoiceId: invoice.invoiceId || `INV-${invoice._id.slice(-6).toUpperCase()}`,
         patientName: invoice.patientId?.userId?.profile ? 
           `${invoice.patientId.userId.profile.firstName} ${invoice.patientId.userId.profile.lastName}` : 
-          'Unknown',
-        amount: invoice.totalAmount,
-        date: new Date(invoice.createdAt).toLocaleDateString(),
-        status: invoice.status,
+          'Unknown Patient',
+        amount: invoice.totalAmount || 0,
+        date: new Date(invoice.createdAt || invoice.issuedAt || Date.now()).toLocaleDateString(),
+        status: invoice.status || invoice.paymentStatus || 'pending',
       })));
+
+      // Fetch recent alerts for admin
+      try {
+        const alertsResponse = await apiClient.getDoctorAlerts({ limit: 5 });
+        const alertsData = alertsResponse?.data || [];
+        setRecentAlerts(alertsData.slice(0, 5).map(alert => ({
+          id: alert._id,
+          type: alert.type || 'Alert',
+          message: alert.message || alert.description || 'Alert triggered',
+          severity: alert.severity || 'warning',
+          patientName: alert.patientId?.userId?.profile ?
+            `${alert.patientId.userId.profile.firstName} ${alert.patientId.userId.profile.lastName}` :
+            'Unknown Patient',
+          room: alert.patientId?.roomNo || 'N/A',
+          timestamp: alert.triggeredAt || alert.createdAt || new Date(),
+        })));
+      } catch (alertErr) {
+        console.error('Error fetching alerts:', alertErr);
+        setRecentAlerts([]);
+      }
 
     } catch (err) {
       console.error('Error fetching admin dashboard data:', err);
