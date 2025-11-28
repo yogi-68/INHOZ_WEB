@@ -9,9 +9,9 @@ const PatientDashboardNew = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [notifications, setNotifications] = useState(2);
   const [userInfo] = useState({
-    name: 'Robert Williams',
-    email: 'patient1@example.com',
-    patientId: 'H001-2025-001'
+    name: 'John Doe',
+    email: 'john.doe@example.com',
+    patientId: 'H-001'
   });
 
   const tabs = [
