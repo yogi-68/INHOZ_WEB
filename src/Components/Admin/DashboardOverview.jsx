@@ -18,6 +18,7 @@ import {
   Legend,
   Filler
 } from 'chart.js';
+import apiClient from '../../utils/api';
 
 ChartJS.register(
   CategoryScale,
@@ -34,25 +35,142 @@ ChartJS.register(
 
 const DashboardOverview = ({ onNavigate }) => {
   const [stats, setStats] = useState({
-    totalPatients: 245,
-    totalDoctors: 48,
-    activeMonitoring: 89,
-    criticalAlerts: 7,
+    totalPatients: 0,
+    totalDoctors: 0,
+    activeMonitoring: 0,
+    criticalAlerts: 0,
     devicesOnline: 156,
     devicesOffline: 12,
-    revenueToday: 45780,
-    revenueMonth: 1234500,
-    admissionsToday: 12,
-    dischargesPending: 8
+    revenueToday: 0,
+    revenueMonth: 0,
+    admissionsToday: 0,
+    dischargesPending: 0
   });
 
-  const [recentAlerts, setRecentAlerts] = useState([
-    { id: 1, patient: 'John Doe', type: 'High Heart Rate', severity: 'critical', time: '5 mins ago', value: '145 bpm' },
-    { id: 2, patient: 'Jane Smith', type: 'Low SpO2', severity: 'warning', time: '12 mins ago', value: '89%' },
-    { id: 3, patient: 'Mike Johnson', type: 'High Temperature', severity: 'warning', time: '23 mins ago', value: '39.2°C' },
-    { id: 4, patient: 'Sarah Williams', type: 'Device Offline', severity: 'info', time: '45 mins ago', value: 'DEV-1234' },
-    { id: 5, patient: 'Robert Brown', type: 'Irregular Heartbeat', severity: 'critical', time: '1 hour ago', value: 'Arrhythmia' }
-  ]);
+  const [recentAlerts, setRecentAlerts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch dashboard stats, invoices, and alerts in parallel
+      const [dashboardResponse, invoicesResponse, alertsResponse] = await Promise.all([
+        apiClient.getAdminDashboard(),
+        apiClient.getInvoices(),
+        apiClient.getDoctorAlerts()
+      ]);
+
+      // Process dashboard stats
+      if (dashboardResponse.success) {
+        const { patients, doctors, alerts } = dashboardResponse.data;
+        
+        // Calculate revenue from invoices
+        let revenueToday = 0;
+        let revenueMonth = 0;
+        let admissionsToday = 0;
+        
+        if (invoicesResponse.success && invoicesResponse.data) {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          
+          const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+          
+          invoicesResponse.data.forEach(invoice => {
+            const invoiceDate = new Date(invoice.issuedAt);
+            
+            // Today's revenue (only paid invoices)
+            if (invoiceDate >= today && invoice.status === 'paid') {
+              revenueToday += invoice.total;
+            }
+            
+            // This month's revenue (only paid invoices)
+            if (invoiceDate >= firstDayOfMonth && invoice.status === 'paid') {
+              revenueMonth += invoice.total;
+            }
+            
+            // Count today's admissions (new invoices)
+            if (invoiceDate >= today) {
+              admissionsToday++;
+            }
+          });
+        }
+
+        // Count critical alerts
+        let criticalCount = 0;
+        if (alertsResponse.success && alertsResponse.data) {
+          criticalCount = alertsResponse.data.filter(alert => 
+            alert.severity === 'critical' && !alert.acknowledgedAt
+          ).length;
+        }
+
+        setStats({
+          totalPatients: patients.total,
+          totalDoctors: doctors.total,
+          activeMonitoring: patients.active,
+          criticalAlerts: criticalCount,
+          devicesOnline: 156, // TODO: Replace with real device data
+          devicesOffline: 12, // TODO: Replace with real device data
+          revenueToday,
+          revenueMonth,
+          admissionsToday,
+          dischargesPending: 0 // TODO: Calculate from patient status
+        });
+
+        // Process recent alerts
+        if (alertsResponse.success && alertsResponse.data) {
+          const formattedAlerts = alertsResponse.data.slice(0, 5).map(alert => {
+            const timeAgo = getTimeAgo(new Date(alert.createdAt));
+            const patientName = alert.patientId?.userId?.profile 
+              ? `${alert.patientId.userId.profile.firstName} ${alert.patientId.userId.profile.lastName}`
+              : 'Unknown Patient';
+            
+            return {
+              id: alert._id,
+              patient: patientName,
+              type: alert.type,
+              severity: alert.severity,
+              time: timeAgo,
+              value: formatAlertValue(alert)
+            };
+          });
+          setRecentAlerts(formattedAlerts);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getTimeAgo = (date) => {
+    const seconds = Math.floor((new Date() - date) / 1000);
+    
+    if (seconds < 60) return `${seconds} secs ago`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes} min${minutes > 1 ? 's' : ''} ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    const days = Math.floor(hours / 24);
+    return `${days} day${days > 1 ? 's' : ''} ago`;
+  };
+
+  const formatAlertValue = (alert) => {
+    if (alert.vitalSnapshot) {
+      if (alert.type.includes('Heart Rate')) return `${alert.vitalSnapshot.heartRate} bpm`;
+      if (alert.type.includes('SpO2')) return `${alert.vitalSnapshot.spo2}%`;
+      if (alert.type.includes('Temperature')) return `${alert.vitalSnapshot.temperature}°C`;
+      if (alert.type.includes('Blood Pressure')) {
+        return `${alert.vitalSnapshot.systolic}/${alert.vitalSnapshot.diastolic} mmHg`;
+      }
+    }
+    return alert.message || 'N/A';
+  };
 
   // Chart Data
   const admissionData = {
@@ -117,7 +235,9 @@ const DashboardOverview = ({ onNavigate }) => {
           </div>
         )}
       </div>
-      <h3 className="text-3xl font-bold text-gray-800 mb-1">{value}</h3>
+      <h3 className="text-3xl font-bold text-gray-800 mb-1">
+        {loading ? '...' : value}
+      </h3>
       <p className="text-sm text-gray-600 font-medium">{title}</p>
       {subtitle && <p className="text-xs text-gray-500 mt-1">{subtitle}</p>}
     </div>
@@ -199,7 +319,7 @@ const DashboardOverview = ({ onNavigate }) => {
           icon={FaMoneyBillWave}
           title="Today's Revenue"
           value={`$${stats.revenueToday.toLocaleString()}`}
-          subtitle="From 12 admissions"
+          subtitle={`From ${stats.admissionsToday} admission${stats.admissionsToday !== 1 ? 's' : ''}`}
           color="border-yellow-500"
           trend={8.3}
         />
@@ -207,7 +327,7 @@ const DashboardOverview = ({ onNavigate }) => {
           icon={FaChartLine}
           title="Monthly Revenue"
           value={`$${(stats.revenueMonth / 1000).toFixed(1)}K`}
-          subtitle="Target: $1.5M (82% achieved)"
+          subtitle={`Target: $1.5M (${Math.round((stats.revenueMonth / 1500000) * 100)}% achieved)`}
           color="border-indigo-500"
           trend={12.7}
         />
@@ -308,14 +428,23 @@ const DashboardOverview = ({ onNavigate }) => {
               <FaExclamationTriangle className="mr-2 text-orange-600" />
               Recent Alerts
             </h3>
-            <button className="text-sm text-purple-600 hover:text-purple-800 font-semibold">
+            <button 
+              onClick={() => onNavigate?.('alerts')}
+              className="text-sm text-purple-600 hover:text-purple-800 font-semibold"
+            >
               View All →
             </button>
           </div>
           <div className="space-y-2 max-h-80 overflow-y-auto">
-            {recentAlerts.map(alert => (
-              <AlertItem key={alert.id} alert={alert} />
-            ))}
+            {loading ? (
+              <div className="text-center py-8 text-gray-500">Loading alerts...</div>
+            ) : recentAlerts.length > 0 ? (
+              recentAlerts.map(alert => (
+                <AlertItem key={alert.id} alert={alert} />
+              ))
+            ) : (
+              <div className="text-center py-8 text-gray-500">No recent alerts</div>
+            )}
           </div>
         </div>
       </div>
