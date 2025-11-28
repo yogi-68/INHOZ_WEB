@@ -592,7 +592,7 @@ const AdminDashboard = () => {
                     [{ text: 'OK' }]
                   )}
                 >
-                  <Icon name="user-plus" size={24} color="#4a90e2" />
+                  <Icon name="user-md" size={24} color="#4a90e2" />
                   <Text style={styles.actionText}>Add Doctor</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
@@ -603,7 +603,7 @@ const AdminDashboard = () => {
                     [{ text: 'OK' }]
                   )}
                 >
-                  <Icon name="user-plus" size={24} color="#4a90e2" />
+                  <Icon name="user" size={24} color="#4a90e2" />
                   <Text style={styles.actionText}>Add Patient</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
@@ -848,12 +848,13 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 20,
-    elevation: 12,
+    paddingBottom: 16,
+    elevation: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    zIndex: 1,
   },
   headerContent: {
     flexDirection: 'row',
@@ -927,12 +928,13 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     backgroundColor: '#fff',
-    elevation: 4,
+    elevation: 2,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
     maxHeight: 55,
+    zIndex: 10,
   },
   tabBarContent: {
     paddingHorizontal: 8,
