@@ -33,6 +33,9 @@ const AdminLogin = () => {
         localStorage.setItem('isAuthenticated', 'true');
         localStorage.setItem('userRole', role);
         
+        // Wait a tick to ensure localStorage is fully written
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         console.log('✅ Admin login successful!');
         console.log('📦 LocalStorage state:', {
           isAuthenticated: localStorage.getItem('isAuthenticated'),

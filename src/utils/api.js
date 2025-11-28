@@ -42,11 +42,15 @@ class APIClient {
 
       if (!response.ok) {
         // Handle 401 Unauthorized - token expired or invalid
-        if (response.status === 401) {
-          console.warn('Token expired or invalid. Clearing auth and redirecting to login...');
-          this.logout();
-          window.location.href = '/login';
-          throw new Error('Token expired');
+        // But only if we're actually authenticated (don't clear on login failures)
+        if (response.status === 401 && !options.skipAuth) {
+          const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
+          if (isAuthenticated) {
+            console.warn('Token expired or invalid. Clearing auth and redirecting to login...');
+            this.logout();
+            window.location.href = '/login';
+          }
+          throw new Error(data.error || data.message || 'Authentication failed');
         }
         throw new Error(data.error || data.message || 'Request failed');
       }
