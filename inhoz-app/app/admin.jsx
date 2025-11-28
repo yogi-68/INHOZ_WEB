@@ -141,6 +141,10 @@ const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [doctors, setDoctors] = useState([]);
   const [patients, setPatients] = useState([]);
+  const [invoices, setInvoices] = useState([]);
+  const [devices, setDevices] = useState([]);
+  const [allAlerts, setAllAlerts] = useState([]);
+  const [auditLogs, setAuditLogs] = useState([]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -252,6 +256,22 @@ const AdminDashboard = () => {
           'Unknown Patient',
         timestamp: alert.triggeredAt || alert.createdAt || new Date(),
       })));
+      setAllAlerts(alertsData || []);
+
+      // Fetch invoices
+      const invoicesResponse = await apiClient.getInvoices();
+      setInvoices(invoicesResponse?.data || []);
+
+      // Fetch audit logs
+      const logsResponse = await apiClient.getAuditLogs({ limit: 50 });
+      setAuditLogs(logsResponse?.data || []);
+
+      // Mock device data (replace with API when available)
+      setDevices([
+        { id: 'DEV-001', name: 'ECG Monitor', type: 'Cardiac', room: '301', status: 'active', battery: '85%', patient: 'John Doe' },
+        { id: 'DEV-002', name: 'Pulse Oximeter', type: 'Respiratory', room: '302', status: 'active', battery: '92%', patient: 'Mary Wilson' },
+        { id: 'DEV-003', name: 'BP Monitor', type: 'Cardiac', room: '303', status: 'maintenance', battery: '45%', patient: 'N/A' },
+      ]);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
       Alert.alert('Error', 'Failed to load dashboard data');
@@ -309,7 +329,12 @@ const AdminDashboard = () => {
       </LinearGradient>
 
       {/* Tab Navigation */}
-      <View style={styles.tabBar}>
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false}
+        style={styles.tabBar}
+        contentContainerStyle={styles.tabBarContent}
+      >
         <TouchableOpacity 
           style={[styles.tab, activeTab === 'overview' && styles.tabActive]}
           onPress={() => setActiveTab('overview')}
@@ -337,7 +362,43 @@ const AdminDashboard = () => {
             Patients
           </Text>
         </TouchableOpacity>
-      </View>
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'billing' && styles.tabActive]}
+          onPress={() => setActiveTab('billing')}
+        >
+          <Icon name="dollar" size={16} color={activeTab === 'billing' ? '#7c3aed' : '#94a3b8'} />
+          <Text style={[styles.tabText, activeTab === 'billing' && styles.tabTextActive]}>
+            Billing
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'devices' && styles.tabActive]}
+          onPress={() => setActiveTab('devices')}
+        >
+          <Icon name="server" size={16} color={activeTab === 'devices' ? '#7c3aed' : '#94a3b8'} />
+          <Text style={[styles.tabText, activeTab === 'devices' && styles.tabTextActive]}>
+            Devices
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'alerts' && styles.tabActive]}
+          onPress={() => setActiveTab('alerts')}
+        >
+          <Icon name="bell" size={16} color={activeTab === 'alerts' ? '#7c3aed' : '#94a3b8'} />
+          <Text style={[styles.tabText, activeTab === 'alerts' && styles.tabTextActive]}>
+            Alerts
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'logs' && styles.tabActive]}
+          onPress={() => setActiveTab('logs')}
+        >
+          <Icon name="history" size={16} color={activeTab === 'logs' ? '#7c3aed' : '#94a3b8'} />
+          <Text style={[styles.tabText, activeTab === 'logs' && styles.tabTextActive]}>
+            Logs
+          </Text>
+        </TouchableOpacity>
+      </ScrollView>
 
       <ScrollView
         style={styles.content}
@@ -493,6 +554,164 @@ const AdminDashboard = () => {
             ) : (
               patients.map((patient) => (
                 <PatientCard key={patient.id} patient={patient} />
+              ))
+            )}
+          </View>
+        )}
+
+        {/* Billing Tab */}
+        {activeTab === 'billing' && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              <Icon name="dollar" size={18} color="#f59e0b" /> Invoices ({invoices.length})
+            </Text>
+            {invoices.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Icon name="file-text" size={48} color="#94a3b8" />
+                <Text style={styles.emptyText}>No invoices found</Text>
+              </View>
+            ) : (
+              invoices.map((invoice) => (
+                <View key={invoice._id} style={styles.invoiceCard}>
+                  <View style={styles.invoiceHeader}>
+                    <Text style={styles.invoiceId}>#{invoice._id.slice(-6)}</Text>
+                    <View style={[
+                      styles.statusBadge,
+                      invoice.status === 'paid' ? styles.statusPaid : styles.statusPending
+                    ]}>
+                      <Text style={styles.statusText}>{invoice.status.toUpperCase()}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.invoicePatient}>
+                    {invoice.patientId?.userId?.profile?.firstName} {invoice.patientId?.userId?.profile?.lastName}
+                  </Text>
+                  <View style={styles.invoiceDetails}>
+                    <Text style={styles.invoiceDate}>
+                      Issued: {new Date(invoice.issuedAt).toLocaleDateString()}
+                    </Text>
+                    <Text style={styles.invoiceAmount}>${invoice.total.toFixed(2)}</Text>
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
+        )}
+
+        {/* Devices Tab */}
+        {activeTab === 'devices' && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              <Icon name="server" size={18} color="#6366f1" /> Medical Devices ({devices.length})
+            </Text>
+            {devices.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Icon name="server" size={48} color="#94a3b8" />
+                <Text style={styles.emptyText}>No devices found</Text>
+              </View>
+            ) : (
+              devices.map((device) => (
+                <View key={device.id} style={styles.deviceCard}>
+                  <View style={styles.deviceHeader}>
+                    <Text style={styles.deviceId}>{device.id}</Text>
+                    <View style={[
+                      styles.statusBadge,
+                      device.status === 'active' ? styles.statusActive : styles.statusMaintenance
+                    ]}>
+                      <Text style={styles.statusText}>{device.status.toUpperCase()}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.deviceName}>{device.name}</Text>
+                  <View style={styles.deviceDetails}>
+                    <View style={styles.deviceDetailRow}>
+                      <Icon name="tag" size={12} color="#64748b" />
+                      <Text style={styles.deviceDetailText}>{device.type}</Text>
+                    </View>
+                    <View style={styles.deviceDetailRow}>
+                      <Icon name="bed" size={12} color="#64748b" />
+                      <Text style={styles.deviceDetailText}>Room {device.room}</Text>
+                    </View>
+                    <View style={styles.deviceDetailRow}>
+                      <Icon name="battery-three-quarters" size={12} color="#64748b" />
+                      <Text style={styles.deviceDetailText}>{device.battery}</Text>
+                    </View>
+                    <View style={styles.deviceDetailRow}>
+                      <Icon name="user" size={12} color="#64748b" />
+                      <Text style={styles.deviceDetailText}>{device.patient}</Text>
+                    </View>
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
+        )}
+
+        {/* Alerts Tab */}
+        {activeTab === 'alerts' && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              <Icon name="bell" size={18} color="#ef4444" /> All Alerts ({allAlerts.length})
+            </Text>
+            {allAlerts.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Icon name="check-circle" size={48} color="#10b981" />
+                <Text style={styles.emptyText}>No alerts</Text>
+              </View>
+            ) : (
+              allAlerts.map((alert) => (
+                <View key={alert._id} style={[
+                  styles.alertItem,
+                  alert.severity === 'critical' ? styles.alertCritical :
+                  alert.severity === 'warning' ? styles.alertWarning :
+                  styles.alertInfo
+                ]}>
+                  <View style={styles.alertHeader}>
+                    <Text style={styles.alertType}>{alert.type}</Text>
+                    <Text style={[
+                      styles.alertBadge,
+                      alert.severity === 'critical' ? styles.badgeCritical :
+                      alert.severity === 'warning' ? styles.badgeWarning :
+                      styles.badgeInfo
+                    ]}>
+                      {alert.severity?.toUpperCase()}
+                    </Text>
+                  </View>
+                  <Text style={styles.alertMessage}>{alert.message}</Text>
+                  <Text style={styles.alertTime}>
+                    {alert.patientId?.userId?.profile?.firstName} {alert.patientId?.userId?.profile?.lastName} • {new Date(alert.createdAt).toLocaleString()}
+                  </Text>
+                </View>
+              ))
+            )}
+          </View>
+        )}
+
+        {/* Audit Logs Tab */}
+        {activeTab === 'logs' && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              <Icon name="history" size={18} color="#64748b" /> Audit Logs ({auditLogs.length})
+            </Text>
+            {auditLogs.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Icon name="history" size={48} color="#94a3b8" />
+                <Text style={styles.emptyText}>No logs found</Text>
+              </View>
+            ) : (
+              auditLogs.map((log) => (
+                <View key={log._id} style={styles.logCard}>
+                  <View style={styles.logHeader}>
+                    <View style={styles.logBadge}>
+                      <Text style={styles.logBadgeText}>{log.action}</Text>
+                    </View>
+                    <View style={styles.logRoleBadge}>
+                      <Text style={styles.logRoleText}>{log.actorRole}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.logResource}>Resource: {log.resource}</Text>
+                  <Text style={styles.logTime}>
+                    <Icon name="clock-o" size={12} color="#94a3b8" /> {new Date(log.createdAt).toLocaleString()}
+                  </Text>
+                </View>
               ))
             )}
           </View>
@@ -850,6 +1069,159 @@ const styles = StyleSheet.create({
   patientDetailText: {
     fontSize: 14,
     color: '#64748b',
+  },
+  // Tab Bar Horizontal Scroll
+  tabBarContent: {
+    flexDirection: 'row',
+  },
+  // Invoice Card Styles
+  invoiceCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  invoiceHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  invoiceId: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1e293b',
+  },
+  statusPaid: {
+    backgroundColor: '#dcfce7',
+  },
+  statusPending: {
+    backgroundColor: '#fef3c7',
+  },
+  invoicePatient: {
+    fontSize: 14,
+    color: '#64748b',
+    marginBottom: 8,
+  },
+  invoiceDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  invoiceDate: {
+    fontSize: 13,
+    color: '#94a3b8',
+  },
+  invoiceAmount: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#10b981',
+  },
+  // Device Card Styles
+  deviceCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  deviceHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  deviceId: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6366f1',
+  },
+  statusActive: {
+    backgroundColor: '#dcfce7',
+  },
+  statusMaintenance: {
+    backgroundColor: '#fef3c7',
+  },
+  deviceName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1e293b',
+    marginBottom: 12,
+  },
+  deviceDetails: {
+    gap: 6,
+  },
+  deviceDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  deviceDetailText: {
+    fontSize: 13,
+    color: '#64748b',
+  },
+  // Audit Log Card Styles
+  logCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  logHeader: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 8,
+  },
+  logBadge: {
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  logBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  logRoleBadge: {
+    backgroundColor: '#dbeafe',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  logRoleText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#3b82f6',
+  },
+  logResource: {
+    fontSize: 13,
+    color: '#64748b',
+    marginBottom: 6,
+  },
+  logTime: {
+    fontSize: 12,
+    color: '#94a3b8',
   },
 });
 
