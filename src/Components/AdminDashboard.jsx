@@ -375,12 +375,25 @@ const DoctorManagement = ({ doctors, onCreateDoctor, onEditDoctor, onDeactivateD
 };
 
 // Patient Management Component  
-const PatientManagement = ({ patients, onAssignDoctor, doctors }) => {
+const PatientManagement = ({ patients, onAssignDoctor, onCreatePatient, doctors }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [showAssignModal, setShowAssignModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedDoctorId, setSelectedDoctorId] = useState('');
+  const [patientForm, setPatientForm] = useState({
+    email: '',
+    password: '',
+    firstName: '',
+    lastName: '',
+    phone: '',
+    age: '',
+    gender: 'male',
+    bloodGroup: '',
+    hospitalId: '',
+    roomNo: '',
+  });
 
   const filteredPatients = patients.filter(patient => {
     const matchesSearch = patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -398,9 +411,25 @@ const PatientManagement = ({ patients, onAssignDoctor, doctors }) => {
     }
   };
 
+  const handleCreatePatient = async (e) => {
+    e.preventDefault();
+    await onCreatePatient(patientForm);
+    setShowCreateModal(false);
+    setPatientForm({ email: '', password: '', firstName: '', lastName: '', phone: '', age: '', gender: 'male', bloodGroup: '', hospitalId: '', roomNo: '' });
+  };
+
   return (
     <div className="bg-white p-6 rounded-lg shadow-md mt-6">
-      <h3 className="text-2xl font-bold mb-6">Patient Management (System-Wide)</h3>
+      <div className="flex justify-between items-center mb-6">
+        <h3 className="text-2xl font-bold">Patient Management (System-Wide)</h3>
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg inline-flex items-center transition shadow-md hover:shadow-lg"
+        >
+          <FaPlus className="mr-2" />
+          Admit Patient
+        </button>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <div className="relative">
@@ -527,6 +556,138 @@ const PatientManagement = ({ patients, onAssignDoctor, doctors }) => {
                 Assign & Log
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-2xl p-8 max-w-3xl w-full max-h-screen overflow-y-auto">
+            <h2 className="text-3xl font-bold mb-6">Admit New Patient</h2>
+            <form onSubmit={handleCreatePatient}>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="mb-4">
+                  <label className="block text-gray-700 font-semibold mb-2">First Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={patientForm.firstName}
+                    onChange={(e) => setPatientForm({ ...patientForm, firstName: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-gray-700 font-semibold mb-2">Last Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={patientForm.lastName}
+                    onChange={(e) => setPatientForm({ ...patientForm, lastName: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              <div className="mb-4">
+                <label className="block text-gray-700 font-semibold mb-2">Email *</label>
+                <input
+                  type="email"
+                  required
+                  value={patientForm.email}
+                  onChange={(e) => setPatientForm({ ...patientForm, email: e.target.value })}
+                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-gray-700 font-semibold mb-2">Password *</label>
+                <input
+                  type="password"
+                  required
+                  value={patientForm.password}
+                  onChange={(e) => setPatientForm({ ...patientForm, password: e.target.value })}
+                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="mb-4">
+                  <label className="block text-gray-700 font-semibold mb-2">Phone *</label>
+                  <input
+                    type="tel"
+                    required
+                    value={patientForm.phone}
+                    onChange={(e) => setPatientForm({ ...patientForm, phone: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-gray-700 font-semibold mb-2">Age</label>
+                  <input
+                    type="number"
+                    value={patientForm.age}
+                    onChange={(e) => setPatientForm({ ...patientForm, age: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-gray-700 font-semibold mb-2">Gender</label>
+                  <select
+                    value={patientForm.gender}
+                    onChange={(e) => setPatientForm({ ...patientForm, gender: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="mb-4">
+                  <label className="block text-gray-700 font-semibold mb-2">Blood Group</label>
+                  <input
+                    type="text"
+                    value={patientForm.bloodGroup}
+                    onChange={(e) => setPatientForm({ ...patientForm, bloodGroup: e.target.value })}
+                    placeholder="e.g., A+"
+                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-gray-700 font-semibold mb-2">Hospital ID</label>
+                  <input
+                    type="text"
+                    value={patientForm.hospitalId}
+                    onChange={(e) => setPatientForm({ ...patientForm, hospitalId: e.target.value })}
+                    placeholder="Auto-generated if empty"
+                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-gray-700 font-semibold mb-2">Room No</label>
+                  <input
+                    type="text"
+                    value={patientForm.roomNo}
+                    onChange={(e) => setPatientForm({ ...patientForm, roomNo: e.target.value })}
+                    placeholder="e.g., 101"
+                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-3 px-6 rounded-lg transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg transition"
+                >
+                  Admit Patient
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -763,23 +924,39 @@ const AdminDashboard = () => {
 
   const handleCreateDoctor = async (doctorData) => {
     try {
-      await apiClient.createDoctor(doctorData);
+      // Map specialization to specialty for backend
+      const backendData = {
+        email: doctorData.email,
+        password: doctorData.password,
+        firstName: doctorData.firstName,
+        lastName: doctorData.lastName,
+        phone: doctorData.phone,
+        specialty: doctorData.specialization, // Backend expects 'specialty'
+      };
+      await apiClient.createDoctor(backendData);
       await fetchDashboardData();
       alert('✅ Doctor created successfully! Action logged to audit trail.');
     } catch (err) {
       console.error('Error creating doctor:', err);
-      alert('❌ Failed to create doctor: ' + err.message);
+      alert('❌ Failed to create doctor: ' + (err.response?.data?.error || err.message));
     }
   };
 
   const handleEditDoctor = async (doctorId, doctorData) => {
     try {
-      await apiClient.updateDoctor(doctorId, doctorData);
+      // Map specialization to specialty for backend
+      const backendData = {
+        firstName: doctorData.firstName,
+        lastName: doctorData.lastName,
+        phone: doctorData.phone,
+        specialty: doctorData.specialization, // Backend expects 'specialty'
+      };
+      await apiClient.updateDoctor(doctorId, backendData);
       await fetchDashboardData();
       alert('✅ Doctor updated successfully! Action logged to audit trail.');
     } catch (err) {
       console.error('Error updating doctor:', err);
-      alert('❌ Failed to update doctor: ' + err.message);
+      alert('❌ Failed to update doctor: ' + (err.response?.data?.error || err.message));
     }
   };
 
@@ -796,6 +973,17 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleCreatePatient = async (patientData) => {
+    try {
+      await apiClient.createPatient(patientData);
+      await fetchDashboardData();
+      alert('✅ Patient admitted successfully! Action logged to audit trail.');
+    } catch (err) {
+      console.error('Error admitting patient:', err);
+      alert('❌ Failed to admit patient: ' + (err.response?.data?.error || err.message));
+    }
+  };
+
   const handleAssignDoctor = async (patientId, doctorId) => {
     try {
       await apiClient.assignDoctor({ patientId, doctorId });
@@ -803,7 +991,7 @@ const AdminDashboard = () => {
       alert('✅ Doctor assigned successfully! Patient and doctor notified.');
     } catch (err) {
       console.error('Error assigning doctor:', err);
-      alert('❌ Failed to assign doctor: ' + err.message);
+      alert('❌ Failed to assign doctor: ' + (err.response?.data?.error || err.message));
     }
   };
 
@@ -915,6 +1103,7 @@ const AdminDashboard = () => {
         <PatientManagement 
           patients={patients}
           doctors={doctors}
+          onCreatePatient={handleCreatePatient}
           onAssignDoctor={handleAssignDoctor}
         />
       </div>

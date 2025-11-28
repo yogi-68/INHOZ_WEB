@@ -187,6 +187,13 @@ class APIClient {
     return this.request(`/admin/patients${queryString ? '?' + queryString : ''}`);
   }
 
+  async createPatient(patientData) {
+    return this.request('/admin/patients', {
+      method: 'POST',
+      body: JSON.stringify(patientData),
+    });
+  }
+
   async assignDoctor(assignmentData) {
     return this.request('/admin/assignments', {
       method: 'POST',
