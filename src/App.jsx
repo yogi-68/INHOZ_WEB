@@ -22,31 +22,69 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
   const userRole = localStorage.getItem('userRole');
   
+  console.log('🔒 ProtectedRoute check:', { isAuthenticated, userRole, allowedRoles });
+  
   if (!isAuthenticated) {
+    console.log('❌ Not authenticated, redirecting to login');
     return <Navigate to="/login" />;
   }
   
   if (allowedRoles && !allowedRoles.includes(userRole)) {
+    console.log('❌ Role not authorized, redirecting to unauthorized');
     return <Navigate to="/unauthorized" />;
   }
   
+  console.log('✅ Access granted');
   return children;
 };
 
 // Role-based dashboard redirect
 const DashboardRedirect = () => {
   const userRole = localStorage.getItem('userRole');
+  const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
+  
+  console.log('🔄 DashboardRedirect:', { userRole, isAuthenticated });
+  
+  if (!isAuthenticated) {
+    console.log('🔄 Not authenticated, going to login');
+    return <Navigate to="/login" replace />;
+  }
   
   switch(userRole) {
     case 'admin':
+      console.log('🔄 Redirecting to admin dashboard');
       return <Navigate to="/admin" replace />;
     case 'doctor':
+      console.log('🔄 Redirecting to doctor dashboard');
       return <Navigate to="/doctor" replace />;
     case 'patient':
+      console.log('🔄 Redirecting to patient dashboard');
       return <Navigate to="/patient" replace />;
     default:
+      console.log('🔄 Unknown role, going to login');
       return <Navigate to="/login" replace />;
   }
+};
+
+// Debug component for development
+const AuthDebug = () => {
+  const isAuthenticated = localStorage.getItem('isAuthenticated');
+  const userRole = localStorage.getItem('userRole');
+  const user = localStorage.getItem('user');
+  const token = localStorage.getItem('token');
+  
+  return (
+    <div style={{ position: 'fixed', bottom: '10px', right: '10px', background: '#000', color: '#fff', padding: '10px', fontSize: '12px', zIndex: 9999 }}>
+      <div>🔒 Auth: {isAuthenticated}</div>
+      <div>👤 Role: {userRole}</div>
+      <div>🎫 Token: {token ? 'Present' : 'None'}</div>
+      <div>👥 User: {user ? 'Present' : 'None'}</div>
+      <button onClick={() => {
+        localStorage.clear();
+        window.location.reload();
+      }} style={{marginTop: '5px', padding: '2px 5px', fontSize: '10px'}}>Clear & Reload</button>
+    </div>
+  );
 };
 
 function App() {
@@ -121,6 +159,9 @@ function App() {
           {/* Catch all - redirect to login or dashboard */}
           <Route path="*" element={<DashboardRedirect />} />
         </Routes>
+        
+        {/* Debug component for development - remove in production */}
+        <AuthDebug />
       </Router>
     </LanguageProvider>
   );
