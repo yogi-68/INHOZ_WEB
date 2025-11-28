@@ -144,6 +144,12 @@ class ApiClient {
     return response.data;
   }
 
+  async getAuditLogs(params = {}) {
+    const queryString = new URLSearchParams(params).toString();
+    const response = await this.client.get(`/admin/audit-logs${queryString ? '?' + queryString : ''}`);
+    return response.data;
+  }
+
   // Doctor APIs
   async getDoctorPatients() {
     const response = await this.client.get('/doctor/patients');

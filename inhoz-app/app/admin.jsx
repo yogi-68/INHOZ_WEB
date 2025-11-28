@@ -205,6 +205,16 @@ const AdminDashboard = () => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
+      setRefreshing(true);
+      
+      // Check if user is authenticated
+      const token = await apiClient.getToken();
+      if (!token) {
+        Alert.alert('Session Expired', 'Please login again');
+        router.replace('/login');
+        return;
+      }
+
       const response = await apiClient.getAdminDashboard();
       const data = response?.data || {};
 
@@ -300,7 +310,23 @@ const AdminDashboard = () => {
       ]);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
-      Alert.alert('Error', 'Failed to load dashboard data');
+      
+      // Check if it's a network error
+      if (error.message === 'Network Error' || error.code === 'ECONNABORTED') {
+        Alert.alert(
+          'Connection Error',
+          'Unable to connect to server. Please check your internet connection.',
+          [
+            { text: 'Retry', onPress: () => fetchDashboardData() },
+            { text: 'Cancel', style: 'cancel' }
+          ]
+        );
+      } else if (error.response?.status === 401) {
+        Alert.alert('Session Expired', 'Please login again');
+        router.replace('/login');
+      } else {
+        Alert.alert('Error', error.message || 'Failed to load dashboard data');
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -336,21 +362,51 @@ const AdminDashboard = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header with Purple Gradient */}
+      {/* Enhanced Header with Purple Gradient */}
       <LinearGradient
-        colors={['#7c3aed', '#5b21b6']}
+        colors={['#7c3aed', '#6d28d9', '#5b21b6']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.header}
       >
         <View style={styles.headerContent}>
-          <View>
-            <Text style={styles.headerTitle}>Admin Portal</Text>
-            <Text style={styles.headerSubtitle}>System Management</Text>
+          <View style={styles.headerLeft}>
+            <View style={styles.headerIconContainer}>
+              <Icon name="hospital-o" size={32} color="#fff" />
+            </View>
+            <View>
+              <Text style={styles.headerTitle}>INHOZ Admin</Text>
+              <Text style={styles.headerSubtitle}>System Management Portal</Text>
+            </View>
           </View>
           <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-            <Icon name="sign-out" size={22} color="#fff" />
+            <Icon name="sign-out" size={20} color="#fff" />
+            <Text style={styles.logoutText}>Logout</Text>
           </TouchableOpacity>
+        </View>
+        
+        {/* Quick Stats Bar */}
+        <View style={styles.quickStatsContainer}>
+          <View style={styles.quickStat}>
+            <Icon name="users" size={16} color="rgba(255,255,255,0.9)" />
+            <Text style={styles.quickStatValue}>{stats.activePatients}</Text>
+            <Text style={styles.quickStatLabel}>Patients</Text>
+          </View>
+          <View style={styles.quickStat}>
+            <Icon name="user-md" size={16} color="rgba(255,255,255,0.9)" />
+            <Text style={styles.quickStatValue}>{stats.doctorsOnDuty}</Text>
+            <Text style={styles.quickStatLabel}>Doctors</Text>
+          </View>
+          <View style={styles.quickStat}>
+            <Icon name="exclamation-triangle" size={16} color="rgba(255,255,255,0.9)" />
+            <Text style={styles.quickStatValue}>{stats.criticalAlerts}</Text>
+            <Text style={styles.quickStatLabel}>Alerts</Text>
+          </View>
+          <View style={styles.quickStat}>
+            <Icon name="dollar" size={16} color="rgba(255,255,255,0.9)" />
+            <Text style={styles.quickStatValue}>${Math.round(stats.revenueToday / 1000)}K</Text>
+            <Text style={styles.quickStatLabel}>Revenue</Text>
+          </View>
         </View>
       </LinearGradient>
 
@@ -765,51 +821,108 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
-    paddingVertical: 24,
-    elevation: 8,
+    paddingTop: 16,
+    paddingBottom: 20,
+    elevation: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
   },
   headerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 16,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  headerIconContainer: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.3)',
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#fff',
+    letterSpacing: 0.5,
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.9)',
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  logoutText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  quickStatsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.2)',
+  },
+  quickStat: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  quickStatValue: {
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#fff',
   },
-  headerSubtitle: {
-    fontSize: 14,
+  quickStatLabel: {
+    fontSize: 10,
     color: 'rgba(255,255,255,0.85)',
-    marginTop: 4,
-  },
-  logoutButton: {
-    padding: 8,
+    fontWeight: '600',
   },
   tabBar: {
-    flexDirection: 'row',
     backgroundColor: '#fff',
-    elevation: 2,
+    elevation: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+  },
+  tabBarContent: {
+    paddingHorizontal: 8,
   },
   tab: {
-    flex: 1,
-    paddingVertical: 14,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 6,
+    gap: 8,
+    minWidth: 90,
   },
   tabActive: {
     borderBottomWidth: 3,
     borderBottomColor: '#7c3aed',
+    backgroundColor: '#f3f4f6',
   },
   tabText: {
     fontSize: 13,
