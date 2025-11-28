@@ -245,27 +245,59 @@ const DoctorDashboard = () => {
     fetchDashboardData();
     setupSocketIO();
 
-    // Poll for live vitals every 15 seconds - GLOBAL for all patients
+    // Poll for real vitals every 15 seconds - individual patient vitals from database
     const vitalsInterval = setInterval(async () => {
-      try {
-        const liveVitals = await apiClient.getLiveVitals();
-        if (liveVitals) {
-          // Apply same vitals to ALL patients globally
-          setPatients(prev => prev.map(p => ({
-            ...p,
-            latestVitals: {
-              ...liveVitals,
-              patientId: p.id
-            }
-          })));
-        }
-      } catch (error) {
-        console.error('Live vitals update error:', error);
-      }
+      fetchPatientVitals();
     }, 15000);
 
     return () => clearInterval(vitalsInterval);
   }, []);
+
+  const fetchPatientVitals = async () => {
+    try {
+      const patientsResponse = await apiClient.getDoctorPatients();
+      if (patientsResponse.success && patientsResponse.data) {
+        const vitalsPromises = patientsResponse.data.map(async (patient) => {
+          try {
+            const vitalsResponse = await apiClient.getPatientVitals(patient._id, { limit: 1 });
+            if (vitalsResponse.success && vitalsResponse.data && vitalsResponse.data.length > 0) {
+              return {
+                patientId: patient._id,
+                vitals: vitalsResponse.data[0]
+              };
+            }
+            return null;
+          } catch (err) {
+            console.error(`Error fetching vitals for patient ${patient._id}:`, err);
+            return null;
+          }
+        });
+
+        const vitalsData = await Promise.all(vitalsPromises);
+        
+        // Update patients with their individual vitals
+        setPatients(prev => prev.map(patient => {
+          const vitalData = vitalsData.find(v => v && v.patientId === patient.id);
+          if (vitalData) {
+            return {
+              ...patient,
+              latestVitals: {
+                heartRate: vitalData.vitals.heartRate,
+                oxygenLevel: vitalData.vitals.spo2,
+                temperature: vitalData.vitals.temperature,
+                systolic: vitalData.vitals.systolic,
+                diastolic: vitalData.vitals.diastolic,
+                timestamp: vitalData.vitals.timestamp
+              }
+            };
+          }
+          return patient;
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching patient vitals:', error);
+    }
+  };
 
   const setupSocketIO = async () => {
     try {
@@ -311,23 +343,44 @@ const DoctorDashboard = () => {
       const patientsResponse = await apiClient.getDoctorPatients();
       const patientsData = patientsResponse?.data || [];
 
-      // Fetch live vitals from Matrix server
-      const liveVitals = await apiClient.getLiveVitals();
+      // Fetch individual vitals for each patient from database
+      const vitalsPromises = patientsData.map(async (patient) => {
+        try {
+          const vitalsResponse = await apiClient.getPatientVitals(patient._id, { limit: 1 });
+          if (vitalsResponse.success && vitalsResponse.data && vitalsResponse.data.length > 0) {
+            return {
+              patientId: patient._id,
+              vitals: vitalsResponse.data[0]
+            };
+          }
+          return { patientId: patient._id, vitals: null };
+        } catch (err) {
+          return { patientId: patient._id, vitals: null };
+        }
+      });
+
+      const vitalsData = await Promise.all(vitalsPromises);
 
       setPatients(
-        patientsData.map((patient) => ({
-          id: patient._id,
-          name: `${patient.userId.profile.firstName} ${patient.userId.profile.lastName}`,
-          hospitalId: patient.hospitalId,
-          room: patient.roomNo,
-          status: patient.status,
-          // GLOBAL: Apply live Matrix vitals to ALL patients
-          latestVitals: liveVitals ? {
-            ...liveVitals,
-            patientId: patient._id
-          } : (patient.latestVitals || null),
-          alertCount: patient.unacknowledgedAlerts || 0,
-        }))
+        patientsData.map((patient) => {
+          const vitalData = vitalsData.find(v => v.patientId === patient._id);
+          return {
+            id: patient._id,
+            name: `${patient.userId.profile.firstName} ${patient.userId.profile.lastName}`,
+            hospitalId: patient.hospitalId,
+            room: patient.roomNo,
+            status: patient.status,
+            latestVitals: vitalData?.vitals ? {
+              heartRate: vitalData.vitals.heartRate,
+              oxygenLevel: vitalData.vitals.spo2,
+              temperature: vitalData.vitals.temperature,
+              systolic: vitalData.vitals.systolic,
+              diastolic: vitalData.vitals.diastolic,
+              timestamp: vitalData.vitals.timestamp
+            } : null,
+            alertCount: patient.unacknowledgedAlerts || 0,
+          };
+        })
       );
 
       const alertsResponse = await apiClient.getAlerts();

@@ -155,6 +155,12 @@ class ApiClient {
     return response.data;
   }
 
+  async getPatientVitals(patientId, params = {}) {
+    const queryString = new URLSearchParams(params).toString();
+    const response = await this.client.get(`/doctor/patients/${patientId}/vitals${queryString ? '?' + queryString : ''}`);
+    return response.data;
+  }
+
   async createPrescription(prescriptionData) {
     const { patientId, medications, notes } = prescriptionData;
     const response = await this.client.post(`/doctor/patients/${patientId}/prescriptions`, {
